@@ -425,8 +425,7 @@
 .nav-dropdown__menu {
   position: absolute;
   top: calc(100% + 6px);
-  inset-inline-start: 50%;
-  translate: -50% 0;
+  inset-inline-start: 0;
   min-width: 240px;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
@@ -442,10 +441,6 @@
     opacity 200ms cubic-bezier(0.4, 0, 0.2, 1),
     transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
     visibility 200ms;
-}
-
-[dir='rtl'] .nav-dropdown__menu {
-  translate: 50% 0;
 }
 
 .nav-dropdown--open .nav-dropdown__menu {

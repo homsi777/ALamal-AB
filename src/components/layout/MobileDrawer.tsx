@@ -3,7 +3,6 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { NAV_ITEMS } from '../../data/mock'
 import { INVENTORY_SUB_ITEMS } from '../../data/inventoryNav'
 import { useApp } from '../../context/AppProvider'
-import { InventoryNavDropdown } from './InventoryNavDropdown'
 
 type MobileDrawerProps = {
   open: boolean
