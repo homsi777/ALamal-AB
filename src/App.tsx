@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AppProvider } from './context/AppProvider'
+import { SalesWorkflowProvider } from './context/SalesWorkflowProvider'
 import { AppShell } from './components/layout/AppShell'
 import { HomePage } from './pages/HomePage'
 import { InventoryPage } from './pages/InventoryPage'
@@ -14,12 +15,13 @@ import { SettingsPage } from './pages/SettingsPage'
 export default function App() {
   return (
     <AppProvider>
+      <SalesWorkflowProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<AppShell />}>
             <Route index element={<HomePage />} />
             <Route path="inventory/*" element={<InventoryPage />} />
-            <Route path="invoices" element={<InvoicesPage />} />
+            <Route path="invoices/*" element={<InvoicesPage />} />
             <Route path="parties" element={<PartiesPage />} />
             <Route path="finance" element={<FinancePage />} />
             <Route path="delivery" element={<DeliveryPage />} />
@@ -29,6 +31,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </SalesWorkflowProvider>
     </AppProvider>
   )
 }

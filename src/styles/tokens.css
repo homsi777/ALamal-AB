@@ -103,7 +103,7 @@
   --z-header: 100;
   --z-drawer: 200;
   --z-overlay: 150;
-  --z-dropdown: 120;
+  --z-dropdown: 250;
 
   /* ── Breakpoints (for reference in JS) ── */
   --bp-xs: 480px;

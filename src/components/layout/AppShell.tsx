@@ -2,13 +2,17 @@ import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { NAV_ITEMS } from '../../data/mock'
 import { useApp } from '../../context/AppProvider'
+import { useSalesWorkflow } from '../../context/SalesWorkflowProvider'
 import { MobileDrawer } from './MobileDrawer'
 import { HeaderActions } from './HeaderActions'
-import { InventoryNavDropdown } from './InventoryNavDropdown'
+import { SubNavDropdown } from './SubNavDropdown'
+import { INVENTORY_SUB_ITEMS } from '../../data/inventoryNav'
+import { INVOICES_SUB_ITEMS } from '../../data/invoicesNav'
 
 export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const { t } = useApp()
+  const { awaitingCount } = useSalesWorkflow()
 
   return (
     <div className="app-shell">
@@ -32,10 +36,32 @@ export function AppShell() {
           </NavLink>
 
           <nav className="app-nav" aria-label={t('header.mainNav')}>
-            {NAV_ITEMS.map((item) =>
-              item.id === 'inventory' ? (
-                <InventoryNavDropdown key={item.id} icon={item.icon} labelKey={item.labelKey} />
-              ) : (
+            {NAV_ITEMS.map((item) => {
+              if (item.id === 'inventory') {
+                return (
+                  <SubNavDropdown
+                    key={item.id}
+                    icon={item.icon}
+                    labelKey={item.labelKey}
+                    basePath="/inventory"
+                    items={INVENTORY_SUB_ITEMS}
+                  />
+                )
+              }
+
+              if (item.id === 'invoices') {
+                return (
+                  <SubNavDropdown
+                    key={item.id}
+                    icon={item.icon}
+                    labelKey={item.labelKey}
+                    basePath="/invoices"
+                    items={INVOICES_SUB_ITEMS}
+                  />
+                )
+              }
+
+              return (
                 <NavLink
                   key={item.id}
                   to={item.path}
@@ -46,9 +72,14 @@ export function AppShell() {
                 >
                   <span>{item.icon}</span>
                   {t(item.labelKey)}
+                  {item.id === 'delivery' && awaitingCount > 0 && (
+                    <span className="nav-badge" title={t('delivery.navBadge')}>
+                      {awaitingCount}
+                    </span>
+                  )}
                 </NavLink>
-              ),
-            )}
+              )
+            })}
           </nav>
 
           <div className="app-header__actions">

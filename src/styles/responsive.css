@@ -76,6 +76,15 @@
     flex-direction: column;
   }
 
+  .page-header__search-group {
+    width: 100%;
+  }
+
+  .page-header__search-group .search-input {
+    flex: 1;
+    min-width: 0;
+  }
+
   .page-header__actions .btn {
     width: 100%;
   }
