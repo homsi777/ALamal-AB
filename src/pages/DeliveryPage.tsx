@@ -1,19 +1,33 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/ui/PageHeader'
 import { GlossButton } from '../components/ui/GlossButton'
 import { Badge } from '../components/ui/Badge'
 import { getLineTotalLength, getPendingPiecesCount, type SalesWorkflowInvoice, type SalesWorkflowLine } from '../data/salesWorkflow'
 import { useSalesWorkflow } from '../context/SalesWorkflowProvider'
 import { useApp } from '../context/AppProvider'
+import { formatNumber, groupByMaterial, sumLengths, sumPieces } from '../utils/invoiceGrouping'
 
 export function DeliveryPage() {
   const { t, locale } = useApp()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { invoices, getInvoiceLines, updateLinePieceLengths, saveAllLineDetailing, markReadyForDelivery, awaitingCount } =
     useSalesWorkflow()
-  const [expandedId, setExpandedId] = useState<string | null>(
-    invoices.find((inv) => inv.status === 'awaiting_detail')?.id ?? null,
-  )
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [draftLengths, setDraftLengths] = useState<Record<string, (number | null)[]>>({})
+
+  useEffect(() => {
+    const focus = searchParams.get('focus')
+    if (focus && invoices.some((inv) => inv.id === focus)) {
+      setExpandedId(focus)
+      return
+    }
+    setExpandedId((current) => {
+      if (current) return current
+      return invoices.find((inv) => inv.status === 'awaiting_detail')?.id ?? null
+    })
+  }, [searchParams, invoices])
 
   const awaiting = invoices.filter((inv) => inv.status === 'awaiting_detail')
   const detailed = invoices.filter((inv) => inv.status === 'detailed' || inv.status === 'ready_delivery')
@@ -36,6 +50,11 @@ export function DeliveryPage() {
     if (field === 'goods') return locale === 'ar' ? line.goodsTypeAr : line.goodsTypeEn
     if (field === 'color') return locale === 'ar' ? line.colorAr : line.colorEn
     return locale === 'ar' ? line.unitAr : line.unitEn
+  }
+
+  const materialLabel = (line: SalesWorkflowLine) => {
+    const goods = lineLabel(line, 'goods')
+    return `${goods} (${line.rollCode})`
   }
 
   const getDraftForLine = (line: SalesWorkflowLine) =>
@@ -67,6 +86,7 @@ export function DeliveryPage() {
       })
       return next
     })
+    navigate(`/invoices/sales/view/${invoiceId}`)
   }
 
   const workflowSteps = useMemo(
@@ -78,6 +98,128 @@ export function DeliveryPage() {
     ],
     [t],
   )
+
+  const renderDetailingLines = (invoiceLines: SalesWorkflowLine[]) => {
+    const groups = groupByMaterial(invoiceLines)
+
+    return groups.map((group) => {
+      const groupPieces = sumPieces(group.lines)
+      const groupLengths = group.lines.reduce(
+        (sum, line) => sum + sumLengths(getDraftForLine(line)),
+        0,
+      )
+      const unit = lineLabel(group.lines[0], 'unit')
+
+      return (
+        <div key={group.rollCode} className="delivery-detail__group">
+          {group.lines.map((line) => {
+            const draft = getDraftForLine(line)
+            const filled = draft.filter((v) => v !== null && v > 0).length
+            const lineLengthSum = sumLengths(draft)
+
+            return (
+              <div key={line.id} className="delivery-detail__line card">
+                <div className="delivery-detail__line-head">
+                  <div>
+                    <strong>{lineLabel(line, 'goods')}</strong>
+                    <span className="category-code">{line.rollCode}</span>
+                    <span> — {lineLabel(line, 'color')}</span>
+                  </div>
+                  <div className="delivery-detail__line-stats">
+                    <span className="delivery-detail__progress">
+                      {filled}/{line.pieces} {t('delivery.piecesDetailed')}
+                    </span>
+                    <span className="delivery-detail__length-sum">
+                      {t('delivery.lineLengthSum')}: {formatNumber(lineLengthSum)} {lineLabel(line, 'unit')}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="delivery-detail__instruction">{t('delivery.detailInstruction')}</p>
+
+                <div className="piece-length-grid">
+                  {Array.from({ length: line.pieces }, (_, index) => (
+                    <label key={index} className="piece-length-field">
+                      <span className="piece-length-field__label">
+                        {t('delivery.pieceNo').replace('{n}', String(index + 1))}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        className="form-input"
+                        value={draft[index] ?? ''}
+                        onChange={(event) => updateDraftLength(line, index, event.target.value)}
+                        placeholder={t('delivery.lengthPlaceholder')}
+                      />
+                      <span className="piece-length-field__unit">{lineLabel(line, 'unit')}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="delivery-detail__line-actions">
+                  <GlossButton variant="ghost" size="sm" onClick={() => saveLineDetailing(line)}>
+                    {t('delivery.saveLine')}
+                  </GlossButton>
+                </div>
+              </div>
+            )
+          })}
+
+          <div className="delivery-detail__material-subtotal">
+            <strong>
+              {t('delivery.materialSubtotalLabel').replace('{material}', materialLabel(group.lines[0]))}
+            </strong>
+            <span>
+              {t('delivery.materialPiecesSum').replace('{pieces}', formatNumber(groupPieces))}
+              {' · '}
+              {t('delivery.materialLengthsSum')
+                .replace('{lengths}', formatNumber(groupLengths))
+                .replace('{unit}', unit)}
+            </span>
+          </div>
+        </div>
+      )
+    })
+  }
+
+  const renderCompletedLines = (invoiceLines: SalesWorkflowLine[]) => {
+    const groups = groupByMaterial(invoiceLines)
+
+    return groups.map((group) => {
+      const groupPieces = sumPieces(group.lines)
+      const groupLengths = group.lines.reduce(
+        (sum, line) => sum + (getLineTotalLength(line) ?? 0),
+        0,
+      )
+      const unit = lineLabel(group.lines[0], 'unit')
+
+      return (
+        <tbody key={group.rollCode}>
+          {group.lines.map((line) => (
+            <tr key={line.id}>
+              <td>{lineLabel(line, 'goods')}</td>
+              <td>{lineLabel(line, 'color')}</td>
+              <td>{line.pieces}</td>
+              <td className="data-table__number">{getLineTotalLength(line) ?? '—'}</td>
+              <td className="data-table__number">
+                {line.pieceLengths.filter(Boolean).join(' + ') || '—'}
+              </td>
+            </tr>
+          ))}
+          <tr className="invoice-table__material-subtotal">
+            <td colSpan={2}>
+              <strong>
+                {t('delivery.materialSubtotalLabel').replace('{material}', materialLabel(group.lines[0]))}
+              </strong>
+            </td>
+            <td className="data-table__number"><strong>{groupPieces}</strong></td>
+            <td className="data-table__number"><strong>{formatNumber(groupLengths)}</strong></td>
+            <td className="data-table__number"><strong>{unit}</strong></td>
+          </tr>
+        </tbody>
+      )
+    })
+  }
 
   return (
     <>
@@ -156,56 +298,38 @@ export function DeliveryPage() {
                         <span>{t('common.customer')}: {label(invoice, 'customer')}</span>
                         <span>{t('invoices.form.warehouse')}: {label(invoice, 'warehouse')}</span>
                         <span>{t('common.date')}: {invoice.date}</span>
+                        <Link to={`/invoices/sales/view/${invoice.id}`} className="delivery-detail__invoice-link">
+                          {t('delivery.viewLinkedInvoice')}
+                        </Link>
                       </div>
 
-                      {invoiceLines.map((line) => {
-                        const draft = getDraftForLine(line)
-                        const filled = draft.filter((v) => v !== null && v > 0).length
+                      {renderDetailingLines(invoiceLines)}
+
+                      {(() => {
+                        const grandPieces = sumPieces(invoiceLines)
+                        const grandLengths = invoiceLines.reduce(
+                          (sum, line) => sum + sumLengths(getDraftForLine(line)),
+                          0,
+                        )
 
                         return (
-                          <div key={line.id} className="delivery-detail__line card">
-                            <div className="delivery-detail__line-head">
-                              <div>
-                                <strong>{lineLabel(line, 'goods')}</strong>
-                                <span className="category-code">{line.rollCode}</span>
-                                <span> — {lineLabel(line, 'color')}</span>
-                              </div>
-                              <span className="delivery-detail__progress">
-                                {filled}/{line.pieces} {t('delivery.piecesDetailed')}
-                              </span>
+                          <div className="delivery-detail__grand-total">
+                            <div className="delivery-detail__grand-row">
+                              <span>{t('delivery.invoiceGrandPieces')}</span>
+                              <strong>{formatNumber(grandPieces)} {t('invoices.form.piecesUnit')}</strong>
                             </div>
-
-                            <p className="delivery-detail__instruction">{t('delivery.detailInstruction')}</p>
-
-                            <div className="piece-length-grid">
-                              {Array.from({ length: line.pieces }, (_, index) => (
-                                <label key={index} className="piece-length-field">
-                                  <span className="piece-length-field__label">
-                                    {t('delivery.pieceNo').replace('{n}', String(index + 1))}
-                                  </span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    className="form-input"
-                                    value={draft[index] ?? ''}
-                                    onChange={(event) => updateDraftLength(line, index, event.target.value)}
-                                    placeholder={t('delivery.lengthPlaceholder')}
-                                  />
-                                  <span className="piece-length-field__unit">{lineLabel(line, 'unit')}</span>
-                                </label>
-                              ))}
-                            </div>
-
-                            <div className="delivery-detail__line-actions">
-                              <GlossButton variant="ghost" size="sm" onClick={() => saveLineDetailing(line)}>
-                                {t('delivery.saveLine')}
-                              </GlossButton>
+                            <div className="delivery-detail__grand-row">
+                              <span>{t('delivery.invoiceGrandLengths')}</span>
+                              <strong>{formatNumber(grandLengths)}</strong>
                             </div>
                           </div>
                         )
-                      })}
+                      })()}
 
                       <div className="delivery-detail__actions">
+                        <GlossButton variant="ghost" onClick={() => navigate(`/invoices/sales/view/${invoice.id}`)}>
+                          {t('delivery.viewLinkedInvoice')}
+                        </GlossButton>
                         <GlossButton variant="accent" onClick={() => saveAllDetailing(invoice.id)}>
                           {t('delivery.saveAndComplete')}
                         </GlossButton>
@@ -250,26 +374,35 @@ export function DeliveryPage() {
                       <td><Badge variant={st.variant}>{st.text}</Badge></td>
                       <td>{invoice.date}</td>
                       <td>
-                        {invoice.status === 'detailed' && (
-                          <GlossButton variant="accent" size="sm" onClick={() => markReadyForDelivery(invoice.id)}>
-                            {t('delivery.issueDeliveryNote')}
-                          </GlossButton>
-                        )}
-                        {invoice.status === 'ready_delivery' && (
-                          <button
-                            type="button"
-                            className="action-btn action-btn--edit"
-                            onClick={() => setExpandedId(isExpanded ? null : `done-${invoice.id}`)}
+                        <div className="delivery-table__actions">
+                          <GlossButton
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate(`/invoices/sales/view/${invoice.id}`)}
                           >
-                            👁
-                          </button>
-                        )}
+                            {t('delivery.viewLinkedInvoice')}
+                          </GlossButton>
+                          {invoice.status === 'detailed' && (
+                            <GlossButton variant="accent" size="sm" onClick={() => markReadyForDelivery(invoice.id)}>
+                              {t('delivery.issueDeliveryNote')}
+                            </GlossButton>
+                          )}
+                          {invoice.status === 'ready_delivery' && (
+                            <button
+                              type="button"
+                              className="action-btn action-btn--edit"
+                              onClick={() => setExpandedId(isExpanded ? null : `done-${invoice.id}`)}
+                            >
+                              👁
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                     {isExpanded && (
                       <tr className="data-table__detail-row">
                         <td colSpan={6}>
-                          <table className="data-table data-table--nested">
+                          <table className="data-table data-table--nested data-table--grouped">
                             <thead>
                               <tr>
                                 <th>{t('invoices.form.colGoodsType')}</th>
@@ -279,19 +412,23 @@ export function DeliveryPage() {
                                 <th>{t('delivery.colPieceLengths')}</th>
                               </tr>
                             </thead>
-                            <tbody>
-                              {invoiceLines.map((line) => (
-                                <tr key={line.id}>
-                                  <td>{lineLabel(line, 'goods')}</td>
-                                  <td>{lineLabel(line, 'color')}</td>
-                                  <td>{line.pieces}</td>
-                                  <td className="data-table__number">{getLineTotalLength(line) ?? '—'}</td>
-                                  <td className="data-table__number">
-                                    {line.pieceLengths.filter(Boolean).join(' + ') || '—'}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
+                            {renderCompletedLines(invoiceLines)}
+                            <tfoot>
+                              <tr className="invoice-table__grand-total">
+                                <td colSpan={2}><strong>{t('invoices.form.grandTotalPieces')}</strong></td>
+                                <td className="data-table__number">
+                                  <strong>{sumPieces(invoiceLines)}</strong>
+                                </td>
+                                <td className="data-table__number">
+                                  <strong>
+                                    {formatNumber(
+                                      invoiceLines.reduce((sum, line) => sum + (getLineTotalLength(line) ?? 0), 0),
+                                    )}
+                                  </strong>
+                                </td>
+                                <td />
+                              </tr>
+                            </tfoot>
                           </table>
                         </td>
                       </tr>

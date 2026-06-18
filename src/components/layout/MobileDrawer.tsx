@@ -3,6 +3,9 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { NAV_ITEMS } from '../../data/mock'
 import { INVENTORY_SUB_ITEMS } from '../../data/inventoryNav'
 import { INVOICES_SUB_ITEMS } from '../../data/invoicesNav'
+import { PARTIES_SUB_ITEMS } from '../../data/partiesNav'
+import { FINANCE_SUB_ITEMS } from '../../data/financeNav'
+import { REPORTS_SUB_ITEMS } from '../../data/reportsNav'
 import { useApp } from '../../context/AppProvider'
 import type { SubNavItem } from './SubNavDropdown'
 
@@ -67,6 +70,9 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
   const location = useLocation()
   const inventoryActive = location.pathname.startsWith('/inventory')
   const invoicesActive = location.pathname.startsWith('/invoices')
+  const partiesActive = location.pathname.startsWith('/parties')
+  const financeActive = location.pathname.startsWith('/finance')
+  const reportsActive = location.pathname.startsWith('/reports')
 
   return (
     <>
@@ -106,6 +112,42 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
                   item={item}
                   subItems={INVOICES_SUB_ITEMS}
                   isSectionActive={invoicesActive}
+                  onClose={onClose}
+                />
+              )
+            }
+
+            if (item.id === 'parties') {
+              return (
+                <DrawerSubmenu
+                  key={item.id}
+                  item={item}
+                  subItems={PARTIES_SUB_ITEMS}
+                  isSectionActive={partiesActive}
+                  onClose={onClose}
+                />
+              )
+            }
+
+            if (item.id === 'finance') {
+              return (
+                <DrawerSubmenu
+                  key={item.id}
+                  item={item}
+                  subItems={FINANCE_SUB_ITEMS}
+                  isSectionActive={financeActive}
+                  onClose={onClose}
+                />
+              )
+            }
+
+            if (item.id === 'reports') {
+              return (
+                <DrawerSubmenu
+                  key={item.id}
+                  item={item}
+                  subItems={REPORTS_SUB_ITEMS}
+                  isSectionActive={reportsActive}
                   onClose={onClose}
                 />
               )

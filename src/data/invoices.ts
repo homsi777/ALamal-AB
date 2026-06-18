@@ -11,6 +11,7 @@ export type InvoiceRecord = {
   pieces: number
   warehouseAr?: string
   warehouseEn?: string
+  originalInvoiceId?: string
 }
 
 export const salesInvoices: InvoiceRecord[] = [
@@ -124,6 +125,48 @@ export const purchaseInvoices: InvoiceRecord[] = [
     pieces: 14,
     warehouseAr: 'مستودع رئيسي',
     warehouseEn: 'Main warehouse',
+  },
+]
+
+export const salesReturnInvoices: InvoiceRecord[] = [
+  {
+    id: 'SRNV-2002',
+    partyAr: 'محل الأناقة',
+    partyEn: 'Al-Anaqa Store',
+    amount: 850,
+    currency: '$',
+    status: 'approved',
+    date: '2026-06-16',
+    pieces: 3,
+    warehouseAr: 'مستودع رئيسي',
+    warehouseEn: 'Main warehouse',
+    originalInvoiceId: 'SINV-1042',
+  },
+  {
+    id: 'SRNV-2001',
+    partyAr: 'بوتيك ليلى',
+    partyEn: 'Layla Boutique',
+    amount: 420,
+    currency: '$',
+    status: 'paid',
+    date: '2026-06-14',
+    pieces: 2,
+    warehouseAr: 'مستودع رئيسي',
+    warehouseEn: 'Main warehouse',
+    originalInvoiceId: 'SINV-1039',
+  },
+  {
+    id: 'SRNV-2000',
+    partyAr: 'خياطة الرافدين',
+    partyEn: 'Al-Rafidain Tailoring',
+    amount: 310,
+    currency: '$',
+    status: 'draft',
+    date: '2026-06-12',
+    pieces: 1,
+    warehouseAr: 'فرع حلب',
+    warehouseEn: 'Aleppo branch',
+    originalInvoiceId: 'SINV-1041',
   },
 ]
 

@@ -22,11 +22,11 @@ export default function App() {
             <Route index element={<HomePage />} />
             <Route path="inventory/*" element={<InventoryPage />} />
             <Route path="invoices/*" element={<InvoicesPage />} />
-            <Route path="parties" element={<PartiesPage />} />
-            <Route path="finance" element={<FinancePage />} />
+            <Route path="parties/*" element={<PartiesPage />} />
+            <Route path="finance/*" element={<FinancePage />} />
             <Route path="delivery" element={<DeliveryPage />} />
             <Route path="china-orders" element={<ChinaOrdersPage />} />
-            <Route path="reports" element={<ReportsPage />} />
+            <Route path="reports/*" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>

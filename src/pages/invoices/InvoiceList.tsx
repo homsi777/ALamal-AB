@@ -8,6 +8,7 @@ import {
   getInvoiceTotals,
   purchaseInvoices,
   salesInvoices,
+  salesReturnInvoices,
   type InvoiceRecord,
   type InvoiceStatus,
 } from '../../data/invoices'
@@ -15,19 +16,33 @@ import { useApp } from '../../context/AppProvider'
 import { useNavigate } from 'react-router-dom'
 
 type InvoiceListProps = {
-  mode: 'sales' | 'purchase'
+  mode: 'sales' | 'purchase' | 'sales-return'
 }
 
 type StatusFilter = 'all' | InvoiceStatus
 
 export function InvoiceList({ mode }: InvoiceListProps) {
   const { t, locale } = useApp()
-  const prefix = mode === 'sales' ? 'invoices.salesList' : 'invoices.purchaseList'
-  const newPath = mode === 'sales' ? '/invoices/sales/new' : '/invoices/purchase/new'
+  const prefix =
+    mode === 'sales'
+      ? 'invoices.salesList'
+      : mode === 'sales-return'
+        ? 'invoices.salesReturnList'
+        : 'invoices.purchaseList'
+  const newPath =
+    mode === 'sales'
+      ? '/invoices/sales/new'
+      : mode === 'sales-return'
+        ? '/invoices/sales-return/new'
+        : '/invoices/purchase/new'
   const navigate = useNavigate()
 
   const [invoices, setInvoices] = useState<InvoiceRecord[]>(
-    mode === 'sales' ? salesInvoices : purchaseInvoices,
+    mode === 'sales'
+      ? salesInvoices
+      : mode === 'sales-return'
+        ? salesReturnInvoices
+        : purchaseInvoices,
   )
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -149,7 +164,8 @@ export function InvoiceList({ mode }: InvoiceListProps) {
             <thead>
               <tr>
                 <th>{t('invoices.number')}</th>
-                <th>{mode === 'sales' ? t('common.customer') : t('common.supplier')}</th>
+                {mode === 'sales-return' && <th>{t('invoices.salesReturnList.colOriginal')}</th>}
+                <th>{mode === 'purchase' ? t('common.supplier') : t('common.customer')}</th>
                 <th>{t('invoices.form.warehouse')}</th>
                 <th>{t('invoices.form.colPieces')}</th>
                 <th>{t('common.amount')}</th>
@@ -164,6 +180,9 @@ export function InvoiceList({ mode }: InvoiceListProps) {
                 return (
                   <tr key={invoice.id}>
                     <td><span className="invoice-no">{invoice.id}</span></td>
+                    {mode === 'sales-return' && (
+                      <td><span className="invoice-no">{invoice.originalInvoiceId ?? '—'}</span></td>
+                    )}
                     <td>{partyLabel(invoice)}</td>
                     <td>{warehouseLabel(invoice)}</td>
                     <td className="data-table__number">{invoice.pieces}</td>
@@ -199,7 +218,7 @@ export function InvoiceList({ mode }: InvoiceListProps) {
                 </div>
                 <div className="mobile-list__row">
                   <span className="mobile-list__label">
-                    {mode === 'sales' ? t('common.customer') : t('common.supplier')}
+                    {mode === 'purchase' ? t('common.supplier') : t('common.customer')}
                   </span>
                   <span className="mobile-list__value">{partyLabel(invoice)}</span>
                 </div>

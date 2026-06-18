@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { GlossButton } from '../../components/ui/GlossButton'
 import { Badge } from '../../components/ui/Badge'
+import { DateInput } from '../../components/ui/DateInput'
 import { useApp } from '../../context/AppProvider'
 import { useSalesWorkflow } from '../../context/SalesWorkflowProvider'
+import { formatNumber, groupByMaterial, sumPieces } from '../../utils/invoiceGrouping'
 
 type InvoiceLine = {
   id: string
@@ -51,6 +53,18 @@ const salesDemoLines: InvoiceLine[] = [
     unitAr: 'يارد',
     unitEn: 'yard',
     unitPrice: 12.5,
+  },
+  {
+    id: 'L-3',
+    goodsTypeAr: 'قطن مصري',
+    goodsTypeEn: 'Egyptian cotton',
+    rollCode: 'CTN-100',
+    colorAr: 'أبيض',
+    colorEn: 'White',
+    pieces: 6,
+    unitAr: 'يارد',
+    unitEn: 'yard',
+    unitPrice: 11,
   },
 ]
 
@@ -109,6 +123,7 @@ const currencySymbols: Record<CurrencyCode, string> = {
 
 export function InvoiceForm({ mode }: InvoiceFormProps) {
   const { t, locale } = useApp()
+  const navigate = useNavigate()
   const { saveDraft } = useSalesWorkflow()
   const isSales = mode === 'sales'
   const prefix = isSales ? 'invoices.salesForm' : 'invoices.purchaseForm'
@@ -121,6 +136,7 @@ export function InvoiceForm({ mode }: InvoiceFormProps) {
   const [creditAmount, setCreditAmount] = useState('')
   const [currency, setCurrency] = useState<CurrencyCode>('usd')
   const [savedInvoiceNo, setSavedInvoiceNo] = useState<string | null>(null)
+  const [savedInvoiceId, setSavedInvoiceId] = useState<string | null>(null)
 
   const today = '2026-06-17'
   const currencySymbol = currencySymbols[currency]
@@ -165,7 +181,7 @@ export function InvoiceForm({ mode }: InvoiceFormProps) {
     const warehouse = warehouses.find((item) => item.id === warehouseId)
     if (!customer || !container || !warehouse) return
 
-    saveDraft({
+    const saved = saveDraft({
       invoiceNo: invoiceNo.trim(),
       customerAr: customer.ar,
       customerEn: customer.en,
@@ -189,7 +205,13 @@ export function InvoiceForm({ mode }: InvoiceFormProps) {
       })),
     })
 
-    setSavedInvoiceNo(invoiceNo.trim())
+    setSavedInvoiceNo(saved.invoiceNo)
+    setSavedInvoiceId(saved.id)
+    navigate(`/invoices/sales/view/${saved.id}`)
+  }
+
+  const goToDelivery = (invoiceId: string) => {
+    navigate(`/delivery?focus=${invoiceId}`)
   }
 
   const workflowSteps = useMemo(
@@ -200,6 +222,37 @@ export function InvoiceForm({ mode }: InvoiceFormProps) {
       t('invoices.form.workflowStepDelivery'),
     ],
     [t],
+  )
+
+  const materialGroups = useMemo(() => (isSales ? groupByMaterial(lines) : []), [isSales, lines])
+  const grandTotalPieces = useMemo(() => sumPieces(lines), [lines])
+
+  const materialLabel = (goodsTypeAr: string, goodsTypeEn: string, rollCode: string) => {
+    const goods = locale === 'ar' ? goodsTypeAr : goodsTypeEn
+    return `${goods} (${rollCode})`
+  }
+
+  const renderSalesTableBody = () => (
+    <tbody>
+      {lines.map((line) => (
+        <tr key={line.id}>
+          <td>{lineLabel(line, 'goods')}</td>
+          <td><span className="category-code">{line.rollCode}</span></td>
+          <td>{lineLabel(line, 'color')}</td>
+          <td className="data-table__number">{line.pieces}</td>
+          <td className="data-table__number">
+            <Badge variant="warning">{t('invoices.form.lengthAwaitingDetail')}</Badge>
+          </td>
+          <td>{lineLabel(line, 'unit')}</td>
+          <td className="data-table__number">{line.unitPrice}</td>
+          <td>
+            <button type="button" className="action-btn action-btn--disable" onClick={() => removeLine(line.id)}>
+              ✕
+            </button>
+          </td>
+        </tr>
+      ))}
+    </tbody>
   )
 
   return (
@@ -241,12 +294,20 @@ export function InvoiceForm({ mode }: InvoiceFormProps) {
         </div>
       )}
 
-      {savedInvoiceNo && (
+      {savedInvoiceNo && savedInvoiceId && (
         <div className="workflow-success-banner">
-          <span>{t('invoices.salesForm.draftSaved').replace('{invoice}', savedInvoiceNo)}</span>
-          <Link to="/delivery" className="workflow-success-banner__link">
-            {t('invoices.salesForm.goToDelivery')}
-          </Link>
+          <div className="workflow-success-banner__text">
+            <span>{t('invoices.salesForm.draftSaved').replace('{invoice}', savedInvoiceNo)}</span>
+            <span className="workflow-success-banner__hint">{t('invoices.salesForm.draftSavedHint')}</span>
+          </div>
+          <div className="workflow-success-banner__actions">
+            <GlossButton variant="accent" size="sm" onClick={() => goToDelivery(savedInvoiceId)}>
+              {t('invoices.salesForm.goToDeliveryNow')}
+            </GlossButton>
+            <Link to={`/delivery?focus=${savedInvoiceId}`} className="workflow-success-banner__link">
+              {t('invoices.salesForm.goToDelivery')}
+            </Link>
+          </div>
         </div>
       )}
 
@@ -277,7 +338,7 @@ export function InvoiceForm({ mode }: InvoiceFormProps) {
 
             <label className="form-field">
               <span className="form-field__label">{t('common.date')}</span>
-              <input type="date" className="form-input" defaultValue={today} />
+              <DateInput defaultValue={today} />
             </label>
 
             <label className="form-field">
@@ -427,37 +488,35 @@ export function InvoiceForm({ mode }: InvoiceFormProps) {
                   <th>{t('invoices.form.colLength')}</th>
                   <th>{t('invoices.form.colUnit')}</th>
                   <th>{t('invoices.form.colUnitPrice')}</th>
-                  <th>{t('invoices.form.colLineTotal')}</th>
+                  {!isSales && <th>{t('invoices.form.colLineTotal')}</th>}
                   <th>{t('invoices.form.colActions')}</th>
                 </tr>
               </thead>
-              <tbody>
-                {lines.map((line) => (
-                  <tr key={line.id}>
-                    <td>{lineLabel(line, 'goods')}</td>
-                    <td><span className="category-code">{line.rollCode}</span></td>
-                    <td>{lineLabel(line, 'color')}</td>
-                    <td className="data-table__number">{line.pieces}</td>
-                    <td className="data-table__number">
-                      {isSales ? (
-                        <Badge variant="warning">{t('invoices.form.lengthAwaitingDetail')}</Badge>
-                      ) : (
-                        line.totalLength
-                      )}
-                    </td>
-                    <td>{lineLabel(line, 'unit')}</td>
-                    <td className="data-table__number">{line.unitPrice}</td>
-                    <td className="data-table__number">
-                      {lineTotal(line) === null ? '—' : formatMoney(lineTotal(line)!)}
-                    </td>
-                    <td>
-                      <button type="button" className="action-btn action-btn--disable" onClick={() => removeLine(line.id)}>
-                        ✕
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              {isSales ? (
+                renderSalesTableBody()
+              ) : (
+                <tbody>
+                  {lines.map((line) => (
+                    <tr key={line.id}>
+                      <td>{lineLabel(line, 'goods')}</td>
+                      <td><span className="category-code">{line.rollCode}</span></td>
+                      <td>{lineLabel(line, 'color')}</td>
+                      <td className="data-table__number">{line.pieces}</td>
+                      <td className="data-table__number">{line.totalLength}</td>
+                      <td>{lineLabel(line, 'unit')}</td>
+                      <td className="data-table__number">{line.unitPrice}</td>
+                      <td className="data-table__number">
+                        {lineTotal(line) === null ? '—' : formatMoney(lineTotal(line)!)}
+                      </td>
+                      <td>
+                        <button type="button" className="action-btn action-btn--disable" onClick={() => removeLine(line.id)}>
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              )}
             </table>
           </div>
         </div>
@@ -485,13 +544,34 @@ export function InvoiceForm({ mode }: InvoiceFormProps) {
               </div>
             </>
           ) : (
-            <div className="invoice-summary__pending">
-              <Badge variant="warning">{t('invoices.form.totalsAwaitingDetail')}</Badge>
-              <p>{t('invoices.form.totalsAwaitingDetailHint')}</p>
+            <div className="invoice-summary__pieces">
+              <div className="invoice-summary__pieces-title">{t('invoices.form.piecesSummaryTitle')}</div>
+              <div className="invoice-summary__chips">
+                {materialGroups.map((group) => (
+                  <div key={group.rollCode} className="invoice-summary__chip">
+                    <span>
+                      {t('invoices.form.materialSubtotal').replace(
+                        '{material}',
+                        materialLabel(group.goodsTypeAr, group.goodsTypeEn, group.rollCode),
+                      )}
+                    </span>
+                    <strong>
+                      {formatNumber(sumPieces(group.lines))} {t('invoices.form.piecesUnit')}
+                    </strong>
+                  </div>
+                ))}
+                <div className="invoice-summary__chip invoice-summary__chip--total">
+                  <span>{t('invoices.form.grandTotalPieces')}</span>
+                  <strong>{formatNumber(grandTotalPieces)} {t('invoices.form.piecesUnit')}</strong>
+                </div>
+              </div>
+              <p className="invoice-summary__pending-note">{t('invoices.form.totalsAwaitingDetailHint')}</p>
             </div>
           )}
           <div className="invoice-summary__meta">
-            <span>{t('invoices.form.totalPieces')}: {lines.reduce((s, l) => s + l.pieces, 0)}</span>
+            {!isSales && (
+              <span>{t('invoices.form.totalPieces')}: {lines.reduce((s, l) => s + l.pieces, 0)}</span>
+            )}
             <span>{t('invoices.form.lineCount')}: {lines.length}</span>
             <span>{t('invoices.form.paymentType')}: {paymentType === 'cash' ? t('invoices.form.paymentCash') : t('invoices.form.paymentCredit')}</span>
           </div>

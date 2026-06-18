@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   createEmptyPieceLengths,
   getPendingPiecesCount,
@@ -47,14 +47,36 @@ type SalesWorkflowContextValue = {
     updates: Array<{ lineId: string; pieceLengths: (number | null)[] }>,
   ) => void
   markReadyForDelivery: (invoiceId: string) => void
+  approveInvoice: (invoiceId: string) => void
   getInvoiceLines: (invoiceId: string) => SalesWorkflowLine[]
 }
 
 const SalesWorkflowContext = createContext<SalesWorkflowContextValue | null>(null)
 
+const WORKFLOW_STORAGE_KEY = 'alama-demo-sales-workflow'
+
+function loadWorkflowState() {
+  try {
+    const raw = sessionStorage.getItem(WORKFLOW_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as { invoices: SalesWorkflowInvoice[]; lines: SalesWorkflowLine[] }
+      if (Array.isArray(parsed.invoices) && Array.isArray(parsed.lines)) {
+        return parsed
+      }
+    }
+  } catch {
+    // demo storage only — ignore parse errors
+  }
+  return { invoices: initialWorkflowInvoices, lines: initialWorkflowLines }
+}
+
 export function SalesWorkflowProvider({ children }: { children: ReactNode }) {
-  const [invoices, setInvoices] = useState<SalesWorkflowInvoice[]>(initialWorkflowInvoices)
-  const [lines, setLines] = useState<SalesWorkflowLine[]>(initialWorkflowLines)
+  const [invoices, setInvoices] = useState<SalesWorkflowInvoice[]>(() => loadWorkflowState().invoices)
+  const [lines, setLines] = useState<SalesWorkflowLine[]>(() => loadWorkflowState().lines)
+
+  useEffect(() => {
+    sessionStorage.setItem(WORKFLOW_STORAGE_KEY, JSON.stringify({ invoices, lines }))
+  }, [invoices, lines])
 
   const awaitingCount = invoices.filter((inv) => inv.status === 'awaiting_detail').length
 
@@ -143,6 +165,16 @@ export function SalesWorkflowProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  const approveInvoice = (invoiceId: string) => {
+    setInvoices((prev) =>
+      prev.map((invoice) =>
+        invoice.id === invoiceId && invoice.status === 'detailed'
+          ? { ...invoice, status: 'ready_delivery' as WorkflowStatus }
+          : invoice,
+      ),
+    )
+  }
+
   const value = useMemo(
     () => ({
       invoices,
@@ -153,6 +185,7 @@ export function SalesWorkflowProvider({ children }: { children: ReactNode }) {
       completeDetailing,
       saveAllLineDetailing,
       markReadyForDelivery,
+      approveInvoice,
       getInvoiceLines,
     }),
     [invoices, lines, awaitingCount],

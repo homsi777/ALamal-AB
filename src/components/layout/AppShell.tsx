@@ -8,6 +8,9 @@ import { HeaderActions } from './HeaderActions'
 import { SubNavDropdown } from './SubNavDropdown'
 import { INVENTORY_SUB_ITEMS } from '../../data/inventoryNav'
 import { INVOICES_SUB_ITEMS } from '../../data/invoicesNav'
+import { PARTIES_SUB_ITEMS } from '../../data/partiesNav'
+import { FINANCE_SUB_ITEMS } from '../../data/financeNav'
+import { REPORTS_SUB_ITEMS } from '../../data/reportsNav'
 
 export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -57,6 +60,42 @@ export function AppShell() {
                     labelKey={item.labelKey}
                     basePath="/invoices"
                     items={INVOICES_SUB_ITEMS}
+                  />
+                )
+              }
+
+              if (item.id === 'parties') {
+                return (
+                  <SubNavDropdown
+                    key={item.id}
+                    icon={item.icon}
+                    labelKey={item.labelKey}
+                    basePath="/parties"
+                    items={PARTIES_SUB_ITEMS}
+                  />
+                )
+              }
+
+              if (item.id === 'finance') {
+                return (
+                  <SubNavDropdown
+                    key={item.id}
+                    icon={item.icon}
+                    labelKey={item.labelKey}
+                    basePath="/finance"
+                    items={FINANCE_SUB_ITEMS}
+                  />
+                )
+              }
+
+              if (item.id === 'reports') {
+                return (
+                  <SubNavDropdown
+                    key={item.id}
+                    icon={item.icon}
+                    labelKey={item.labelKey}
+                    basePath="/reports"
+                    items={REPORTS_SUB_ITEMS}
                   />
                 )
               }

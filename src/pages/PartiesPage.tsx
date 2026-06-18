@@ -1,70 +1,18 @@
-import { PageHeader } from '../components/ui/PageHeader'
-import { GlossButton } from '../components/ui/GlossButton'
-import { Badge } from '../components/ui/Badge'
-import { parties, statusLabel } from '../data/mock'
-import { useApp } from '../context/AppProvider'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { PartyFormPage } from './parties/PartyFormPage'
+import { PartyListPage } from './parties/PartyListPage'
+import { PartyStatementPage } from './parties/PartyStatementPage'
 
 export function PartiesPage() {
-  const { t, locale } = useApp()
-
   return (
-    <>
-      <PageHeader
-        title={t('parties.title')}
-        subtitle={t('parties.subtitle')}
-        actions={
-          <>
-            <GlossButton variant="accent">{t('parties.addCustomer')}</GlossButton>
-            <GlossButton variant="ghost">{t('parties.addSupplier')}</GlossButton>
-          </>
-        }
-      />
-
-      <div className="card">
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{t('common.name')}</th>
-                <th>{t('common.type')}</th>
-                <th>{t('common.balance')}</th>
-                <th>{t('common.phone')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {parties.map((p) => {
-                const st = statusLabel(locale, p.type)
-                return (
-                  <tr key={p.name}>
-                    <td>{p.name}</td>
-                    <td><Badge variant={st.variant}>{st.text}</Badge></td>
-                    <td>{p.balance}</td>
-                    <td>{p.phone}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mobile-list">
-          {parties.map((p) => {
-            const st = statusLabel(locale, p.type)
-            return (
-              <div key={p.name} className="mobile-list__item">
-                <div className="mobile-list__row">
-                  <span className="mobile-list__value">{p.name}</span>
-                  <Badge variant={st.variant}>{st.text}</Badge>
-                </div>
-                <div className="mobile-list__row">
-                  <span className="mobile-list__label">{t('common.balance')}</span>
-                  <span className="mobile-list__value">{p.balance}</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </>
+    <Routes>
+      <Route index element={<Navigate to="customers" replace />} />
+      <Route path="customers" element={<PartyFormPage type="customer" />} />
+      <Route path="customers/register" element={<PartyListPage type="customer" />} />
+      <Route path="customers/statement" element={<PartyStatementPage type="customer" />} />
+      <Route path="suppliers" element={<PartyFormPage type="supplier" />} />
+      <Route path="suppliers/register" element={<PartyListPage type="supplier" />} />
+      <Route path="suppliers/statement" element={<PartyStatementPage type="supplier" />} />
+    </Routes>
   )
 }
