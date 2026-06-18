@@ -1,5 +1,7 @@
 import { formatPartyMoney } from '../data/parties'
 import type { AccountStatementReconcileMark } from '../export-templates/account-statement/types'
+import {
+  buildAccountStatementFromLines,
   downloadAccountStatementExcelFile,
   downloadInvoiceStatementExcelFile,
   getAccountStatementExcelPreviewHtml,
@@ -30,6 +32,7 @@ type StatementPageContext = {
   vouchers: import('../data/parties').CustomerVoucher[]
   lineTotals: { pieces: number; lengths: number; amount: number }
   labels: StatementExportLabels
+  reconcile?: AccountStatementReconcileMark
 }
 
 type InvoicePageContext = {

@@ -249,6 +249,11 @@ export function PartyStatementServicesMenu({
     close: t('parties.statementServices.close'),
   }
 
+  const accountReconcile =
+    reconcileMarkedDate && reconcileTargetInvoiceNo
+      ? { date: reconcileMarkedDate, invoiceNo: reconcileTargetInvoiceNo }
+      : undefined
+
   const exportContext = {
     party,
     partyName,
@@ -259,6 +264,7 @@ export function PartyStatementServicesMenu({
     vouchers,
     lineTotals,
     labels: accountLabels,
+    reconcile: accountReconcile,
   }
 
   const invoiceContext = {

@@ -212,7 +212,6 @@ export function buildAccountInvoiceExcelRows(
 }
 
 export function resolveReconcileMark(
-  invoiceRows: AccountInvoiceRow[],
   markedDate: string | null | undefined,
   targetInvoiceNo: string | null | undefined,
 ): AccountStatementReconcileMark | undefined {

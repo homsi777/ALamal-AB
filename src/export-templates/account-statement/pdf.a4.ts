@@ -216,8 +216,39 @@ function getAccountStatementPdfStyles() {
     .amount--receipt strong { color: #15803d; }
     .amount--payment strong { color: #991b1b; }
     @media print {
+      html, body, * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
       .doc-summary-grid { gap: 4px; }
       .doc-summary__cell { padding: 5px 6px; }
+      .doc-summary__cell--accent {
+        background: #fef9e7 !important;
+        border-color: #b8860b !important;
+      }
+      .doc-summary__cell--info { background: #eff6ff !important; border-color: #3b82f6 !important; }
+      .doc-summary__cell--warning { background: #fffbeb !important; border-color: #f59e0b !important; }
+      .doc-summary__cell--success { background: #f0fdf4 !important; border-color: #22c55e !important; }
+      .doc-summary__cell--gold { background: #fef9e7 !important; border-color: #b8860b !important; }
+      .doc-reconcile-banner {
+        background: #fecaca !important;
+        border-color: #991b1b !important;
+        color: #991b1b !important;
+      }
+      .data-table--account .row--reconcile td {
+        background: #fecaca !important;
+        border-color: #991b1b !important;
+      }
+      .data-table--account .row--reconcile strong { color: #991b1b !important; }
+      .badge--success { background: #dcfce7 !important; color: #15803d !important; }
+      .badge--warning { background: #fef3c7 !important; color: #b45309 !important; }
+      .amount--receipt strong { color: #15803d !important; }
+      .amount--payment strong { color: #991b1b !important; }
+      .doc-header { border-bottom-color: #b8860b !important; }
+      .doc-financial {
+        background: #fef9e7 !important;
+        border-color: #b8860b !important;
+      }
     }
   `
 }

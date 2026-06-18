@@ -2688,6 +2688,11 @@ html[dir='ltr'] .classification-ladder__arrow {
 }
 
 @media print {
+  html, body, * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   .app-header,
   .party-statement__panel,
   .party-statement__selector,
@@ -2697,6 +2702,36 @@ html[dir='ltr'] .classification-ladder__arrow {
 
   .app-main {
     padding: 0 !important;
+  }
+
+  .party-statement__row--reconcile td {
+    background: #fecaca !important;
+    border-color: #991b1b !important;
+  }
+
+  .party-statement__row--reconcile strong {
+    color: #991b1b !important;
+  }
+
+  .party-statement__financial-cell--accent {
+    background: #fef9e7 !important;
+    border-color: #b8860b !important;
+  }
+
+  .party-statement__financial-cell--info {
+    background: #eff6ff !important;
+  }
+
+  .party-statement__financial-cell--warning {
+    background: #fffbeb !important;
+  }
+
+  .party-statement__financial-cell--success {
+    background: #f0fdf4 !important;
+  }
+
+  .party-statement__financial-cell--gold {
+    background: #fef9e7 !important;
   }
 }
 

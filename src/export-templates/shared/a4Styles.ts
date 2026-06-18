@@ -10,6 +10,10 @@ export function getA4BaseStyles() {
       background: #e8ecf1;
     }
     @page { size: A4 portrait; margin: 12mm 14mm; }
+    html, body, * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     .a4-page {
       width: 210mm;
       min-height: 297mm;
@@ -239,6 +243,10 @@ export function getA4BaseStyles() {
       justify-content: space-between;
     }
     @media print {
+      html, body, * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
       body { background: #fff; }
       .preview-toolbar { display: none !important; }
       .a4-page {
@@ -305,5 +313,11 @@ export function getExcelPreviewStyles() {
     }
     tr:nth-child(2) td { background: #f0fdf4; font-weight: 600; }
     @media print { .preview-toolbar { display: none; } body { background: #fff; } }
+    @media print {
+      html, body, table, td, th, tr, div, span, strong {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
   `
 }

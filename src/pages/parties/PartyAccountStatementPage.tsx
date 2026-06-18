@@ -149,6 +149,8 @@ export function PartyAccountStatementPage({ type }: PartyAccountStatementPagePro
               vouchers={vouchersInRange}
               lineTotals={invoiceTotals}
               statementPrefix={prefix}
+              reconcileMarkedDate={reconcileMarkedDate}
+              reconcileTargetInvoiceNo={reconcileTargetInvoiceNo}
             />
             <GlossButton variant="receipt">{t(`${prefix}.receiptVoucher`)}</GlossButton>
             <GlossButton variant="payment">

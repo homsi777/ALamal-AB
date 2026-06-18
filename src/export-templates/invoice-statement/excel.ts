@@ -1,27 +1,15 @@
 import * as XLSX from 'xlsx'
-import type { CustomerStatementLine, CustomerVoucher } from '../../data/parties'
 import { formatPartyMoney } from '../../data/parties'
 import { wrapExcelPreviewDocument } from '../shared/a4Document'
 import { sanitizeExportFileName } from '../shared/fileNames'
-import { defaultCompanyInfo, type ExportLocale } from '../shared/types'
+import { defaultCompanyInfo } from '../shared/types'
+import {
+  buildInvoiceLineExcelRows,
+  buildInvoiceVoucherExcelRows,
+} from './layout'
 import type { InvoiceStatementTemplateData } from './types'
 
-function lineGoods(line: CustomerStatementLine, locale: ExportLocale) {
-  return locale === 'ar' ? line.goodsTypeAr : line.goodsTypeEn
-}
-
-function lineUnit(line: CustomerStatementLine, locale: ExportLocale) {
-  return locale === 'ar' ? line.unitAr : line.unitEn
-}
-
-function lineNotes(line: CustomerStatementLine, locale: ExportLocale) {
-  return locale === 'ar' ? line.notesAr : line.notesEn
-}
-
-function voucherNotes(voucher: CustomerVoucher, locale: ExportLocale) {
-  return locale === 'ar' ? voucher.noteAr : voucher.noteEn
-}
-
+/** قالب Excel — كشف فاتورة (مرجع ثابت) */
 export function buildInvoiceStatementWorkbook(data: InvoiceStatementTemplateData) {
   const { party, partyName, dateFrom, dateTo, locale, lines, vouchers, lineTotals, labels, isSample } = data
   const company = defaultCompanyInfo
@@ -48,27 +36,7 @@ export function buildInvoiceStatementWorkbook(data: InvoiceStatementTemplateData
     labels.colNotes,
   ]
 
-  const lineRows = lines.map((line) => [
-    lineGoods(line, locale),
-    line.pieces,
-    `${line.totalLength} ${lineUnit(line, locale)}`,
-    line.unitPrice,
-    line.lineTotal,
-    line.invoiceNo,
-    line.date,
-    lineNotes(line, locale),
-  ])
-
-  lineRows.push([
-    labels.footerTotal,
-    lineTotals.pieces,
-    lineTotals.lengths,
-    '',
-    lineTotals.amount,
-    '',
-    '',
-    '',
-  ])
+  const lineRows = buildInvoiceLineExcelRows(lines, locale, lineTotals, labels)
 
   const linesSheet = XLSX.utils.aoa_to_sheet([...headerRows, columnHeaders, ...lineRows])
   linesSheet['!cols'] = [
@@ -93,13 +61,7 @@ export function buildInvoiceStatementWorkbook(data: InvoiceStatementTemplateData
       labels.colVoucherAmount,
       labels.colNotes,
     ]
-    const voucherRows = vouchers.map((voucher) => [
-      voucher.date,
-      voucher.type === 'receipt' ? labels.receipt : labels.payment,
-      voucher.ref,
-      voucher.amount,
-      voucherNotes(voucher, locale),
-    ])
+    const voucherRows = buildInvoiceVoucherExcelRows(vouchers, locale, labels)
     const vouchersSheet = XLSX.utils.aoa_to_sheet([...headerRows.slice(0, 3), [], voucherHeaders, ...voucherRows])
     vouchersSheet['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 32 }]
     XLSX.utils.book_append_sheet(workbook, vouchersSheet, labels.vouchersSheet.slice(0, 31))

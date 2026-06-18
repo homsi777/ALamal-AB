@@ -1,26 +1,15 @@
 import { formatPartyMoney } from '../../data/parties'
-import type { CustomerStatementLine, CustomerVoucher } from '../../data/parties'
 import { wrapA4Document } from '../shared/a4Document'
 import { escapeHtml } from '../shared/html'
-import { defaultCompanyInfo, type ExportLocale, type ExportMode } from '../shared/types'
+import { defaultCompanyInfo, type ExportMode } from '../shared/types'
+import {
+  renderInvoiceKpiPdfHtml,
+  renderInvoiceLinesPdfHtml,
+  renderInvoiceVouchersPdfHtml,
+} from './pdfLayout'
 import type { InvoiceStatementTemplateData } from './types'
 
-function lineGoods(line: CustomerStatementLine, locale: ExportLocale) {
-  return locale === 'ar' ? line.goodsTypeAr : line.goodsTypeEn
-}
-
-function lineUnit(line: CustomerStatementLine, locale: ExportLocale) {
-  return locale === 'ar' ? line.unitAr : line.unitEn
-}
-
-function lineNotes(line: CustomerStatementLine, locale: ExportLocale) {
-  return locale === 'ar' ? line.notesAr : line.notesEn
-}
-
-function voucherNotes(voucher: CustomerVoucher, locale: ExportLocale) {
-  return locale === 'ar' ? voucher.noteAr : voucher.noteEn
-}
-
+/** قالب PDF/طباعة A4 — كشف فاتورة (مرجع ثابت) */
 export function renderInvoiceStatementPdfHtml(
   data: InvoiceStatementTemplateData,
   mode: ExportMode,
@@ -33,55 +22,8 @@ export function renderInvoiceStatementPdfHtml(
   const companyAddress = locale === 'ar' ? company.addressAr : company.addressEn
   const generatedAt = new Date().toLocaleString(locale === 'ar' ? 'ar-SY' : 'en-US')
 
-  const linesHtml = lines
-    .map(
-      (line) => `
-      <tr>
-        <td>${escapeHtml(lineGoods(line, locale))}</td>
-        <td class="num">${line.pieces}</td>
-        <td class="num">${line.totalLength} ${escapeHtml(lineUnit(line, locale))}</td>
-        <td class="num">${line.unitPrice}</td>
-        <td class="num"><strong>${escapeHtml(formatPartyMoney(line.lineTotal, party.currency))}</strong></td>
-        <td>${escapeHtml(line.invoiceNo)}</td>
-        <td>${line.date}</td>
-        <td>${escapeHtml(lineNotes(line, locale))}</td>
-      </tr>`,
-    )
-    .join('')
-
-  const vouchersHtml =
-    vouchers.length > 0
-      ? `
-      <h2 class="section-title">${escapeHtml(labels.vouchersSheet)}</h2>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>${escapeHtml(labels.colDate)}</th>
-            <th>${escapeHtml(labels.colVoucherType)}</th>
-            <th>${escapeHtml(labels.colVoucherRef)}</th>
-            <th>${escapeHtml(labels.colVoucherAmount)}</th>
-            <th>${escapeHtml(labels.colNotes)}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${vouchers
-            .map(
-              (voucher) => `
-            <tr>
-              <td>${voucher.date}</td>
-              <td>${voucher.type === 'receipt' ? escapeHtml(labels.receipt) : escapeHtml(labels.payment)}</td>
-              <td>${escapeHtml(voucher.ref)}</td>
-              <td class="num"><strong>${escapeHtml(formatPartyMoney(voucher.amount, party.currency))}</strong></td>
-              <td>${escapeHtml(voucherNotes(voucher, locale))}</td>
-            </tr>`,
-            )
-            .join('')}
-        </tbody>
-      </table>`
-      : ''
-
   const sampleRibbon = isSample
-    ? `<div style="margin-bottom:12px;padding:8px 12px;border-radius:6px;background:#fef3c7;border:1px solid #fbbf24;font-size:10px;color:#92400e;text-align:center;">⚠ ${escapeHtml(labels.sampleBadge)}</div>`
+    ? `<div class="sample-ribbon">⚠ ${escapeHtml(labels.sampleBadge)}</div>`
     : ''
 
   const bodyHtml = `
@@ -115,7 +57,7 @@ export function renderInvoiceStatementPdfHtml(
       </div>
     </div>
 
-    <table class="data-table">
+    <table class="data-table data-table--invoice">
       <thead>
         <tr>
           <th>${escapeHtml(labels.colGoodsType)}</th>
@@ -128,7 +70,7 @@ export function renderInvoiceStatementPdfHtml(
           <th>${escapeHtml(labels.colNotes)}</th>
         </tr>
       </thead>
-      <tbody>${linesHtml}</tbody>
+      <tbody>${renderInvoiceLinesPdfHtml(lines, party, locale)}</tbody>
       <tfoot>
         <tr>
           <td>${escapeHtml(labels.footerTotal)}</td>
@@ -141,26 +83,9 @@ export function renderInvoiceStatementPdfHtml(
       </tfoot>
     </table>
 
-    ${vouchersHtml}
+    ${renderInvoiceVouchersPdfHtml(vouchers, party, locale, labels)}
 
-    <div class="kpi-row">
-      <div class="kpi-box">
-        <span>${escapeHtml(labels.kpiLines)}</span>
-        <strong>${lines.length}</strong>
-      </div>
-      <div class="kpi-box">
-        <span>${escapeHtml(labels.kpiPieces)}</span>
-        <strong>${lineTotals.pieces}</strong>
-      </div>
-      <div class="kpi-box">
-        <span>${escapeHtml(labels.kpiLengths)}</span>
-        <strong>${lineTotals.lengths}</strong>
-      </div>
-      <div class="kpi-box kpi-box--gold">
-        <span>${escapeHtml(labels.kpiAmount)}</span>
-        <strong>${escapeHtml(formatPartyMoney(lineTotals.amount, party.currency))}</strong>
-      </div>
-    </div>
+    ${renderInvoiceKpiPdfHtml(lines, lineTotals, party, labels)}
 
     <footer class="doc-footer">
       <span>${escapeHtml(labels.generatedAt)}: ${generatedAt}</span>
@@ -177,5 +102,17 @@ export function renderInvoiceStatementPdfHtml(
     printLabel: labels.print,
     closeLabel: labels.close,
     embedded: options?.embedded,
+    extraStyles: `
+      .sample-ribbon {
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: #fef3c7;
+        border: 1px solid #fbbf24;
+        font-size: 10px;
+        color: #92400e;
+        text-align: center;
+      }
+    `,
   })
 }
