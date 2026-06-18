@@ -181,6 +181,7 @@ const sampleVouchers = [
     ref: 'RCV-220',
     date: '2026-06-08',
     amount: 45000,
+    invoiceNo: 'SINV-1026',
     noteAr: 'تحصيل نقدي — دفعة أولى',
     noteEn: 'Cash collection — first payment',
   },
@@ -191,6 +192,7 @@ const sampleVouchers = [
     ref: 'RCV-228',
     date: '2026-06-14',
     amount: 32000,
+    invoiceNo: 'SINV-1035',
     noteAr: 'سند قبض — تحصيل آجل',
     noteEn: 'Receipt voucher',
   },
@@ -198,11 +200,12 @@ const sampleVouchers = [
     id: 'AV-3',
     partyId: 'CUS-PREVIEW',
     type: 'payment' as const,
-    ref: 'PAY-045',
+    ref: 'RET-045',
     date: '2026-06-16',
     amount: 8500,
-    noteAr: 'سند دفع — رد فرق جودة',
-    noteEn: 'Payment — quality difference refund',
+    invoiceNo: 'SINV-1041',
+    noteAr: 'SINV-1041',
+    noteEn: 'SINV-1041',
   },
 ]
 
@@ -224,6 +227,7 @@ export function getAccountStatementSampleData(
     financial,
     rowTotals,
     labels,
+    reconcile: { date: '2026-06-11', invoiceNo: 'SINV-1037' },
     isSample: true,
   }
 }

@@ -60,6 +60,8 @@ export type AccountStatementLabels = {
   footerTotal: string
   receipt: string
   payment: string
+  /** عند التعيين: سند الدفع يُعرض كسند مرتجع (كشف عميل) */
+  returnVoucher?: string
   kpiInvoices: string
   kpiPieces: string
   kpiLengths: string
@@ -70,6 +72,14 @@ export type AccountStatementLabels = {
   previewExcelBanner: string
   print: string
   close: string
+  reconcileDateLabel?: string
+}
+
+export type AccountStatementReconcileMark = {
+  /** تاريخ المطابقة المحدد */
+  date: string
+  /** آخر فاتورة بذلك التاريخ — تُلوَّن في القالب */
+  invoiceNo: string | null
 }
 
 export type AccountStatementTemplateData = {
@@ -83,5 +93,6 @@ export type AccountStatementTemplateData = {
   financial: AccountFinancialSummary
   rowTotals: { pieces: number; lengths: number; amount: number }
   labels: AccountStatementLabels
+  reconcile?: AccountStatementReconcileMark
   isSample?: boolean
 }

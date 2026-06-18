@@ -83,3 +83,27 @@ export function sumAccountInvoiceRows(rows: AccountInvoiceRow[]) {
     amount: rows.reduce((sum, row) => sum + row.invoiceTotal, 0),
   }
 }
+
+export function getVouchersForInvoice(vouchers: CustomerVoucher[], invoiceNo: string) {
+  return vouchers.filter((voucher) => voucher.invoiceNo === invoiceNo)
+}
+
+type VoucherLabelSet = { receipt: string; payment: string; returnVoucher?: string }
+
+export function accountVoucherTypeLabel(voucher: CustomerVoucher, labels: VoucherLabelSet) {
+  if (voucher.type === 'payment' && labels.returnVoucher) {
+    return labels.returnVoucher
+  }
+  return voucher.type === 'receipt' ? labels.receipt : labels.payment
+}
+
+export function accountVoucherNote(
+  voucher: CustomerVoucher,
+  locale: ExportLocale,
+  useReturnInvoiceNo: boolean,
+) {
+  if (useReturnInvoiceNo && voucher.type === 'payment' && voucher.invoiceNo) {
+    return voucher.invoiceNo
+  }
+  return locale === 'ar' ? voucher.noteAr : voucher.noteEn
+}

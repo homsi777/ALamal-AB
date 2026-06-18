@@ -17,6 +17,9 @@ export {
   aggregateLinesByInvoice,
   buildAccountFinancialSummary,
   sumAccountInvoiceRows,
+  getVouchersForInvoice,
+  accountVoucherTypeLabel,
+  accountVoucherNote,
 } from './aggregate'
 
 export function openAccountStatementPdf(data: AccountStatementTemplateData, mode: ExportMode) {
@@ -52,9 +55,9 @@ export function buildAccountStatementFromLines(
     lines: CustomerStatementLine[]
   },
 ): AccountStatementTemplateData {
-  const { lines, ...rest } = input
+  const { lines, reconcile, ...rest } = input
   const invoiceRows = aggregateLinesByInvoice(lines, rest.locale)
   const rowTotals = sumAccountInvoiceRows(invoiceRows)
   const financial = buildAccountFinancialSummary(rest.party, rest.vouchers, rowTotals.amount)
-  return { ...rest, invoiceRows, rowTotals, financial }
+  return { ...rest, invoiceRows, rowTotals, financial, reconcile }
 }

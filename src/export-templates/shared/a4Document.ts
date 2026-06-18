@@ -9,6 +9,8 @@ type WrapA4Options = {
   previewBanner?: string
   printLabel?: string
   closeLabel?: string
+  /** أنماط إضافية خاصة بقالب معيّن */
+  extraStyles?: string
   /** عند المعاينة داخل التطبيق — إخفاء شريط الأدوات المكرر */
   embedded?: boolean
 }
@@ -22,6 +24,7 @@ export function wrapA4Document({
   printLabel = 'طباعة',
   closeLabel = 'إغلاق',
   embedded = false,
+  extraStyles = '',
 }: WrapA4Options) {
   const dir = locale === 'ar' ? 'rtl' : 'ltr'
   const lang = locale === 'ar' ? 'ar' : 'en'
@@ -48,7 +51,7 @@ export function wrapA4Document({
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${title}</title>
-  <style>${getA4BaseStyles()}</style>
+  <style>${getA4BaseStyles()}${extraStyles}</style>
 </head>
 <body>
   ${toolbar}

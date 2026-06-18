@@ -1,6 +1,5 @@
 import { formatPartyMoney } from '../data/parties'
-import {
-  buildAccountStatementFromLines,
+import type { AccountStatementReconcileMark } from '../export-templates/account-statement/types'
   downloadAccountStatementExcelFile,
   downloadInvoiceStatementExcelFile,
   getAccountStatementExcelPreviewHtml,

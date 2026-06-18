@@ -20,6 +20,7 @@ import {
 } from '../../utils/statementExport'
 
 type PartyStatementServicesMenuProps = {
+  variant: 'account' | 'invoice'
   party: PartyRecord
   partyName: string
   dateFrom: string
@@ -28,6 +29,8 @@ type PartyStatementServicesMenuProps = {
   vouchers: CustomerVoucher[]
   lineTotals: { pieces: number; lengths: number; amount: number }
   statementPrefix: string
+  reconcileMarkedDate?: string | null
+  reconcileTargetInvoiceNo?: string | null
 }
 
 type ServiceAction =
@@ -35,12 +38,8 @@ type ServiceAction =
   | 'excel'
   | 'print'
   | 'whatsapp'
-  | 'previewAccountPdf'
-  | 'previewAccountExcel'
-  | 'previewInvoicePdf'
-  | 'previewInvoiceExcel'
-  | 'exportInvoicePdf'
-  | 'exportInvoiceExcel'
+  | 'previewPdf'
+  | 'previewExcel'
 
 type CardPosition = {
   mode: 'dropdown' | 'sheet'
@@ -55,18 +54,15 @@ const serviceIcons: Record<ServiceAction, string> = {
   excel: '📊',
   print: '🖨️',
   whatsapp: '💬',
-  previewAccountPdf: '👁️',
-  previewAccountExcel: '👁️',
-  previewInvoicePdf: '👁️',
-  previewInvoiceExcel: '👁️',
-  exportInvoicePdf: '📄',
-  exportInvoiceExcel: '📊',
+  previewPdf: '👁️',
+  previewExcel: '👁️',
 }
 
 const MOBILE_BREAKPOINT = 767
-const CARD_ESTIMATED_HEIGHT = 500
+const CARD_ESTIMATED_HEIGHT = 400
 
 export function PartyStatementServicesMenu({
+  variant,
   party,
   partyName,
   dateFrom,
@@ -75,6 +71,8 @@ export function PartyStatementServicesMenu({
   vouchers,
   lineTotals,
   statementPrefix,
+  reconcileMarkedDate,
+  reconcileTargetInvoiceNo,
 }: PartyStatementServicesMenuProps) {
   const { t, locale } = useApp()
   const [open, setOpen] = useState(false)
@@ -195,6 +193,10 @@ export function PartyStatementServicesMenu({
     footerTotal: t(`${statementPrefix}.footerTotal`),
     receipt: t('parties.statementTypeReceipt'),
     payment: t('parties.statementTypePayment'),
+    returnVoucher:
+      statementPrefix === 'parties.customerAccountStatement'
+        ? t('parties.statementTypeReturn')
+        : undefined,
     kpiInvoices: t('parties.exportTemplates.accountStatement.kpiInvoices'),
     kpiPieces: t(`${statementPrefix}.kpiPieces`),
     kpiLengths: t(`${statementPrefix}.kpiLengths`),
@@ -205,6 +207,10 @@ export function PartyStatementServicesMenu({
     previewExcelBanner: t('parties.exportTemplates.accountStatement.previewExcelBanner'),
     print: t('parties.statementServices.print'),
     close: t('parties.statementServices.close'),
+    reconcileDateLabel:
+      statementPrefix === 'parties.customerAccountStatement'
+        ? t(`${statementPrefix}.reconcileDateLabel`)
+        : undefined,
     whatsappIntro: t('parties.statementServices.whatsappIntro'),
     whatsappLines: t('parties.exportTemplates.accountStatement.kpiInvoices'),
     whatsappAmount: t(`${statementPrefix}.kpiAmount`),
@@ -271,13 +277,19 @@ export function PartyStatementServicesMenu({
     {
       id: 'pdf',
       title: t('parties.statementServices.exportPdf'),
-      hint: t('parties.statementServices.exportPdfHint'),
+      hint:
+        variant === 'account'
+          ? t('parties.statementServices.exportPdfHint')
+          : t('parties.exportTemplates.invoiceStatement.exportPdfHint'),
       tone: 'pdf',
     },
     {
       id: 'excel',
       title: t('parties.statementServices.exportExcel'),
-      hint: t('parties.statementServices.exportExcelHint'),
+      hint:
+        variant === 'account'
+          ? t('parties.statementServices.exportExcelHint')
+          : t('parties.exportTemplates.invoiceStatement.exportExcelHint'),
       tone: 'excel',
     },
     {
@@ -286,56 +298,67 @@ export function PartyStatementServicesMenu({
       hint: t('parties.statementServices.printA4Hint'),
       tone: 'print',
     },
-    {
-      id: 'whatsapp',
-      title: t('parties.statementServices.shareWhatsapp'),
-      hint: t('parties.statementServices.shareWhatsappHint'),
-      tone: 'whatsapp',
-    },
+    ...(variant === 'account'
+      ? [
+          {
+            id: 'whatsapp' as const,
+            title: t('parties.statementServices.shareWhatsapp'),
+            hint: t('parties.statementServices.shareWhatsappHint'),
+            tone: 'whatsapp',
+          },
+        ]
+      : []),
   ]
 
   function handleService(action: ServiceAction) {
-    if (action === 'pdf') exportStatementPdf(exportContext)
-    if (action === 'excel') exportStatementExcel(exportContext)
-    if (action === 'exportInvoicePdf') exportInvoiceStatementPdf(invoiceContext)
-    if (action === 'exportInvoiceExcel') exportInvoiceStatementExcel(invoiceContext)
+    if (variant === 'account') {
+      if (action === 'pdf') exportStatementPdf(exportContext)
+      if (action === 'excel') exportStatementExcel(exportContext)
+      if (action === 'whatsapp') shareStatementWhatsapp(exportContext)
+      if (action === 'previewPdf') {
+        setPreviewTitle(t('parties.exportTemplates.accountStatement.previewBanner'))
+        setPreviewHtml(getStatementPdfPreviewHtml(accountLabels, locale))
+      }
+      if (action === 'previewExcel') {
+        setPreviewTitle(t('parties.exportTemplates.accountStatement.previewExcelBanner'))
+        setPreviewHtml(getStatementExcelPreviewHtml(accountLabels, locale))
+      }
+    } else {
+      if (action === 'pdf') exportInvoiceStatementPdf(invoiceContext)
+      if (action === 'excel') exportInvoiceStatementExcel(invoiceContext)
+      if (action === 'previewPdf') {
+        setPreviewTitle(t('parties.exportTemplates.invoiceStatement.previewBanner'))
+        setPreviewHtml(getInvoicePdfPreviewHtml(invoiceLabels, locale))
+      }
+      if (action === 'previewExcel') {
+        setPreviewTitle(t('parties.exportTemplates.invoiceStatement.previewExcelBanner'))
+        setPreviewHtml(getInvoiceExcelPreviewHtml(invoiceLabels, locale))
+      }
+    }
     if (action === 'print') printStatementA4()
-    if (action === 'whatsapp') shareStatementWhatsapp(exportContext)
-    if (action === 'previewAccountPdf') {
-      setPreviewTitle(t('parties.exportTemplates.accountStatement.previewBanner'))
-      setPreviewHtml(getStatementPdfPreviewHtml(accountLabels, locale))
-    }
-    if (action === 'previewAccountExcel') {
-      setPreviewTitle(t('parties.exportTemplates.accountStatement.previewExcelBanner'))
-      setPreviewHtml(getStatementExcelPreviewHtml(accountLabels, locale))
-    }
-    if (action === 'previewInvoicePdf') {
-      setPreviewTitle(t('parties.exportTemplates.invoiceStatement.previewBanner'))
-      setPreviewHtml(getInvoicePdfPreviewHtml(invoiceLabels, locale))
-    }
-    if (action === 'previewInvoiceExcel') {
-      setPreviewTitle(t('parties.exportTemplates.invoiceStatement.previewExcelBanner'))
-      setPreviewHtml(getInvoiceExcelPreviewHtml(invoiceLabels, locale))
-    }
     setOpen(false)
   }
 
-  const mainServices = services
+  const previewServices: { id: ServiceAction; title: string; tone: string }[] =
+    variant === 'account'
+      ? [
+          { id: 'previewPdf', title: t('parties.exportTemplates.accountStatement.previewPdf'), tone: 'pdf' },
+          { id: 'previewExcel', title: t('parties.exportTemplates.accountStatement.previewExcel'), tone: 'excel' },
+        ]
+      : [
+          { id: 'previewPdf', title: t('parties.exportTemplates.invoiceStatement.previewPdf'), tone: 'pdf' },
+          { id: 'previewExcel', title: t('parties.exportTemplates.invoiceStatement.previewExcel'), tone: 'excel' },
+        ]
 
-  const accountPreviewServices: { id: ServiceAction; title: string; tone: string }[] = [
-    { id: 'previewAccountPdf', title: t('parties.exportTemplates.accountStatement.previewPdf'), tone: 'pdf' },
-    { id: 'previewAccountExcel', title: t('parties.exportTemplates.accountStatement.previewExcel'), tone: 'excel' },
-  ]
+  const servicesSubtitle =
+    variant === 'account'
+      ? t('parties.statementServices.subtitleAccount')
+      : t('parties.statementServices.subtitleInvoice')
 
-  const invoicePreviewServices: { id: ServiceAction; title: string; tone: string }[] = [
-    { id: 'previewInvoicePdf', title: t('parties.exportTemplates.invoiceStatement.previewPdf'), tone: 'pdf' },
-    { id: 'previewInvoiceExcel', title: t('parties.exportTemplates.invoiceStatement.previewExcel'), tone: 'excel' },
-  ]
-
-  const invoiceExportServices: { id: ServiceAction; title: string; tone: string }[] = [
-    { id: 'exportInvoicePdf', title: t('parties.exportTemplates.invoiceStatement.exportPdf'), tone: 'pdf' },
-    { id: 'exportInvoiceExcel', title: t('parties.exportTemplates.invoiceStatement.exportExcel'), tone: 'excel' },
-  ]
+  const previewSectionLabel =
+    variant === 'account'
+      ? t('parties.exportTemplates.accountStatement.previewSection')
+      : t('parties.exportTemplates.invoiceStatement.previewSection')
 
   const overlay =
     open && cardPos
@@ -368,7 +391,7 @@ export function PartyStatementServicesMenu({
               <div className="statement-services__card-header">
                 <div>
                   <h3 className="statement-services__card-title">{t('parties.statementServices.title')}</h3>
-                  <p className="statement-services__card-subtitle">{t('parties.statementServices.subtitle')}</p>
+                  <p className="statement-services__card-subtitle">{servicesSubtitle}</p>
                 </div>
                 <button
                   type="button"
@@ -381,7 +404,7 @@ export function PartyStatementServicesMenu({
               </div>
 
               <div className="statement-services__grid">
-                {mainServices.map((service) => (
+                {services.map((service) => (
                   <button
                     key={service.id}
                     type="button"
@@ -400,43 +423,9 @@ export function PartyStatementServicesMenu({
               </div>
 
               <div className="statement-services__preview">
-                <span className="statement-services__preview-label">
-                  {t('parties.exportTemplates.accountStatement.previewSection')}
-                </span>
+                <span className="statement-services__preview-label">{previewSectionLabel}</span>
                 <div className="statement-services__preview-actions">
-                  {accountPreviewServices.map((service) => (
-                    <button
-                      key={service.id}
-                      type="button"
-                      className={`statement-services__preview-btn statement-services__preview-btn--${service.tone}`}
-                      onClick={() => handleService(service.id)}
-                    >
-                      <span aria-hidden>{serviceIcons[service.id]}</span>
-                      {service.title}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="statement-services__preview">
-                <span className="statement-services__preview-label">
-                  {t('parties.exportTemplates.invoiceStatement.previewSection')}
-                </span>
-                <div className="statement-services__preview-actions">
-                  {invoicePreviewServices.map((service) => (
-                    <button
-                      key={service.id}
-                      type="button"
-                      className={`statement-services__preview-btn statement-services__preview-btn--${service.tone}`}
-                      onClick={() => handleService(service.id)}
-                    >
-                      <span aria-hidden>{serviceIcons[service.id]}</span>
-                      {service.title}
-                    </button>
-                  ))}
-                </div>
-                <div className="statement-services__preview-actions" style={{ marginTop: 'var(--space-2)' }}>
-                  {invoiceExportServices.map((service) => (
+                  {previewServices.map((service) => (
                     <button
                       key={service.id}
                       type="button"

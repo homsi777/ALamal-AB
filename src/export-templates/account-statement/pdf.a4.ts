@@ -1,26 +1,14 @@
 import { formatPartyMoney } from '../../data/parties'
-import type { CustomerVoucher } from '../../data/parties'
 import { wrapA4Document } from '../shared/a4Document'
 import { escapeHtml } from '../shared/html'
-import { defaultCompanyInfo, type ExportLocale, type ExportMode } from '../shared/types'
-import type { AccountInvoiceRow, AccountStatementTemplateData } from './types'
+import { defaultCompanyInfo, type ExportMode } from '../shared/types'
+import {
+  buildFinancialSummaryPdfHtml,
+  renderAccountInvoiceTablePdfHtml,
+} from './layout'
+import type { AccountStatementTemplateData } from './types'
 
-function rowGoods(row: AccountInvoiceRow, locale: ExportLocale) {
-  return locale === 'ar' ? row.goodsSummaryAr : row.goodsSummaryEn
-}
-
-function rowUnit(row: AccountInvoiceRow, locale: ExportLocale) {
-  return locale === 'ar' ? row.unitAr : row.unitEn
-}
-
-function rowNotes(row: AccountInvoiceRow, locale: ExportLocale) {
-  return locale === 'ar' ? row.notesAr : row.notesEn
-}
-
-function voucherNotes(voucher: CustomerVoucher, locale: ExportLocale) {
-  return locale === 'ar' ? voucher.noteAr : voucher.noteEn
-}
-
+/** قالب PDF/طباعة A4 — كشف حساب عميل (مرجع ثابت) */
 export function renderAccountStatementPdfHtml(
   data: AccountStatementTemplateData,
   mode: ExportMode,
@@ -37,6 +25,7 @@ export function renderAccountStatementPdfHtml(
     financial,
     rowTotals,
     labels,
+    reconcile,
     isSample,
   } = data
   const company = defaultCompanyInfo
@@ -47,55 +36,11 @@ export function renderAccountStatementPdfHtml(
   const partyAddress = locale === 'ar' ? party.addressAr : party.addressEn
   const generatedAt = new Date().toLocaleString(locale === 'ar' ? 'ar-SY' : 'en-US')
 
-  const rowsHtml = invoiceRows
-    .map(
-      (row) => `
-      <tr>
-        <td>${escapeHtml(rowGoods(row, locale))}</td>
-        <td class="num">${row.pieces}</td>
-        <td class="num">${row.totalLength} ${escapeHtml(rowUnit(row, locale))}</td>
-        <td class="num">${row.avgUnitPrice}</td>
-        <td class="num"><strong>${escapeHtml(formatPartyMoney(row.invoiceTotal, party.currency))}</strong></td>
-        <td><span class="invoice-no">${escapeHtml(row.invoiceNo)}</span></td>
-        <td>${row.date}</td>
-        <td>${escapeHtml(rowNotes(row, locale))}</td>
-      </tr>`,
-    )
-    .join('')
-
-  const vouchersHtml =
-    vouchers.length > 0
-      ? `
-      <h2 class="section-title">${escapeHtml(labels.vouchersSheet)}</h2>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>${escapeHtml(labels.colDate)}</th>
-            <th>${escapeHtml(labels.colVoucherType)}</th>
-            <th>${escapeHtml(labels.colVoucherRef)}</th>
-            <th>${escapeHtml(labels.colVoucherAmount)}</th>
-            <th>${escapeHtml(labels.colNotes)}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${vouchers
-            .map(
-              (voucher) => `
-            <tr>
-              <td>${voucher.date}</td>
-              <td>${voucher.type === 'receipt' ? escapeHtml(labels.receipt) : escapeHtml(labels.payment)}</td>
-              <td>${escapeHtml(voucher.ref)}</td>
-              <td class="num"><strong>${escapeHtml(formatPartyMoney(voucher.amount, party.currency))}</strong></td>
-              <td>${escapeHtml(voucherNotes(voucher, locale))}</td>
-            </tr>`,
-            )
-            .join('')}
-        </tbody>
-      </table>`
-      : ''
+  const summaryCtx = { party, financial, invoiceRows, rowTotals, labels, reconcile }
+  const tableCtx = { party, locale, invoiceRows, vouchers, labels, reconcile }
 
   const sampleRibbon = isSample
-    ? `<div style="margin-bottom:12px;padding:8px 12px;border-radius:6px;background:#fef3c7;border:1px solid #fbbf24;font-size:10px;color:#92400e;text-align:center;">⚠ ${escapeHtml(labels.sampleBadge)}</div>`
+    ? `<div class="sample-ribbon">⚠ ${escapeHtml(labels.sampleBadge)}</div>`
     : ''
 
   const bodyHtml = `
@@ -117,7 +62,7 @@ export function renderAccountStatementPdfHtml(
       <div class="doc-party-card__item">
         <span>${escapeHtml(labels.party)}</span>
         <strong>${escapeHtml(partyName)}</strong>
-        <small style="color:#94a3b8">${escapeHtml(party.id)}</small>
+        <small class="muted">${escapeHtml(party.id)}</small>
       </div>
       <div class="doc-party-card__item">
         <span>${escapeHtml(labels.phone)}</span>
@@ -141,37 +86,9 @@ export function renderAccountStatementPdfHtml(
       </div>
     </div>
 
-    <div class="doc-financial">
-      <div class="doc-financial__title">${escapeHtml(labels.financialSummary)}</div>
-      <div class="doc-financial__grid">
-        <div class="doc-financial__item">
-          <span>${escapeHtml(labels.openingBalance)}</span>
-          <strong>${escapeHtml(formatPartyMoney(financial.openingBalance, party.currency))}</strong>
-        </div>
-        <div class="doc-financial__item">
-          <span>${escapeHtml(labels.invoicesTotal)}</span>
-          <strong>${escapeHtml(formatPartyMoney(financial.invoicesTotal, party.currency))}</strong>
-        </div>
-        <div class="doc-financial__item">
-          <span>${escapeHtml(labels.receiptsTotal)}</span>
-          <strong>${escapeHtml(formatPartyMoney(financial.receiptsTotal, party.currency))}</strong>
-        </div>
-        <div class="doc-financial__item">
-          <span>${escapeHtml(labels.paymentsTotal)}</span>
-          <strong>${escapeHtml(formatPartyMoney(financial.paymentsTotal, party.currency))}</strong>
-        </div>
-        <div class="doc-financial__item doc-financial__item--accent">
-          <span>${escapeHtml(labels.receivables)}</span>
-          <strong>${escapeHtml(formatPartyMoney(financial.closingBalance, party.currency))}</strong>
-        </div>
-        <div class="doc-financial__item doc-financial__item--accent">
-          <span>${escapeHtml(labels.closingBalance)}</span>
-          <strong>${escapeHtml(formatPartyMoney(financial.closingBalance, party.currency))}</strong>
-        </div>
-      </div>
-    </div>
+    ${buildFinancialSummaryPdfHtml(summaryCtx)}
 
-    <table class="data-table">
+    <table class="data-table data-table--account">
       <thead>
         <tr>
           <th>${escapeHtml(labels.colGoodsType)}</th>
@@ -184,39 +101,8 @@ export function renderAccountStatementPdfHtml(
           <th>${escapeHtml(labels.colNotes)}</th>
         </tr>
       </thead>
-      <tbody>${rowsHtml}</tbody>
-      <tfoot>
-        <tr>
-          <td>${escapeHtml(labels.footerTotal)}</td>
-          <td class="num">${rowTotals.pieces}</td>
-          <td class="num">${rowTotals.lengths}</td>
-          <td></td>
-          <td class="num">${escapeHtml(formatPartyMoney(rowTotals.amount, party.currency))}</td>
-          <td colspan="3"></td>
-        </tr>
-      </tfoot>
+      <tbody>${renderAccountInvoiceTablePdfHtml(tableCtx)}</tbody>
     </table>
-
-    ${vouchersHtml}
-
-    <div class="kpi-row">
-      <div class="kpi-box">
-        <span>${escapeHtml(labels.kpiInvoices)}</span>
-        <strong>${invoiceRows.length}</strong>
-      </div>
-      <div class="kpi-box">
-        <span>${escapeHtml(labels.kpiPieces)}</span>
-        <strong>${rowTotals.pieces}</strong>
-      </div>
-      <div class="kpi-box">
-        <span>${escapeHtml(labels.kpiLengths)}</span>
-        <strong>${rowTotals.lengths}</strong>
-      </div>
-      <div class="kpi-box kpi-box--gold">
-        <span>${escapeHtml(labels.kpiAmount)}</span>
-        <strong>${escapeHtml(formatPartyMoney(rowTotals.amount, party.currency))}</strong>
-      </div>
-    </div>
 
     <footer class="doc-footer">
       <span>${escapeHtml(labels.generatedAt)}: ${generatedAt}</span>
@@ -233,5 +119,105 @@ export function renderAccountStatementPdfHtml(
     printLabel: labels.print,
     closeLabel: labels.close,
     embedded: options?.embedded,
+    extraStyles: getAccountStatementPdfStyles(),
   })
+}
+
+function getAccountStatementPdfStyles() {
+  return `
+    .sample-ribbon {
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: #fef3c7;
+      border: 1px solid #fbbf24;
+      font-size: 10px;
+      color: #92400e;
+      text-align: center;
+    }
+    .muted { color: #94a3b8; }
+    .doc-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .doc-summary__cell {
+      padding: 7px 8px;
+      border-radius: 5px;
+      background: #fff;
+      border: 1px solid rgba(184, 134, 11, 0.15);
+      min-width: 0;
+    }
+    .doc-summary__cell span {
+      display: block;
+      font-size: 7.5px;
+      color: #64748b;
+      margin-bottom: 2px;
+      line-height: 1.3;
+    }
+    .doc-summary__cell strong {
+      display: block;
+      font-size: 10px;
+      color: #0f172a;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .doc-summary__cell--accent {
+      border-color: rgba(184, 134, 11, 0.4);
+      background: rgba(184, 134, 11, 0.1);
+    }
+    .doc-summary__cell--accent strong { color: #b8860b; }
+    .doc-summary__cell--info {
+      border-color: rgba(59, 130, 246, 0.25);
+      background: rgba(59, 130, 246, 0.05);
+    }
+    .doc-summary__cell--warning {
+      border-color: rgba(245, 158, 11, 0.25);
+      background: rgba(245, 158, 11, 0.05);
+    }
+    .doc-summary__cell--success {
+      border-color: rgba(34, 197, 94, 0.25);
+      background: rgba(34, 197, 94, 0.05);
+    }
+    .doc-summary__cell--gold {
+      border-color: rgba(184, 134, 11, 0.35);
+      background: rgba(184, 134, 11, 0.08);
+    }
+    .doc-summary__cell--gold strong { color: #b8860b; }
+    .doc-reconcile-banner {
+      margin-bottom: 8px;
+      padding: 6px 10px;
+      border-radius: 5px;
+      font-size: 9px;
+      color: #991b1b;
+      background: rgba(153, 27, 27, 0.12);
+      border: 1px solid rgba(127, 29, 29, 0.35);
+    }
+    .data-table--account .voucher-row td {
+      background: rgba(148, 163, 184, 0.08);
+      border-top-style: dashed;
+      font-size: 9px;
+    }
+    .data-table--account .row--reconcile td {
+      background: rgba(153, 27, 27, 0.28) !important;
+      border-color: rgba(127, 29, 29, 0.55);
+    }
+    .data-table--account .row--reconcile strong { color: #991b1b; }
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 8px;
+      font-weight: 700;
+    }
+    .badge--success { background: rgba(34, 197, 94, 0.15); color: #15803d; }
+    .badge--warning { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+    .invoice-no { font-family: ui-monospace, monospace; font-size: 9px; color: #475569; }
+    .amount--receipt strong { color: #15803d; }
+    .amount--payment strong { color: #991b1b; }
+    @media print {
+      .doc-summary-grid { gap: 4px; }
+      .doc-summary__cell { padding: 5px 6px; }
+    }
+  `
 }

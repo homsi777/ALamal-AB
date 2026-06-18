@@ -1,57 +1,38 @@
-import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { GlossButton } from '../../components/ui/GlossButton'
 import { DateInput } from '../../components/ui/DateInput'
 import { Badge } from '../../components/ui/Badge'
-import {
-  customerStatements,
-  formatPartyMoney,
-  getCustomerStatementTotals,
-  getCustomerReconciliation,
-  getCustomerVouchers,
-  getSupplierStatementTotals,
-  getSupplierReconciliation,
-  getSupplierVouchers,
-  getPartiesByType,
-  getPartyVoucherTotals,
-  supplierStatementLines,
-  type PartyRecord,
-  type StatementEntryType,
-} from '../../data/parties'
+import { formatPartyMoney } from '../../data/parties'
 import { useApp } from '../../context/AppProvider'
 import { formatNumber } from '../../utils/invoiceGrouping'
 import { PartyStatementServicesMenu } from './PartyStatementServicesMenu'
+import { usePartyStatementPageData, type PartyStatementPageType } from './usePartyStatementPageData'
+import type { StatementEntryType } from '../../data/parties'
 
-type PartyStatementPageProps = {
-  type: 'customer' | 'supplier'
+type PartyInvoiceStatementPageProps = {
+  type: PartyStatementPageType
 }
 
-function filterByDateRange<T extends { date: string }>(items: T[], dateFrom: string, dateTo: string) {
-  return items.filter((item) => {
-    if (dateFrom && item.date < dateFrom) return false
-    if (dateTo && item.date > dateTo) return false
-    return true
-  })
-}
-
-export function PartyStatementPage({ type }: PartyStatementPageProps) {
+export function PartyInvoiceStatementPage({ type }: PartyInvoiceStatementPageProps) {
   const { t, locale } = useApp()
-  const [searchParams] = useSearchParams()
-  const prefix = type === 'customer' ? 'parties.customerStatement' : 'parties.supplierStatement'
-  const isCustomer = type === 'customer'
-
-  const parties = getPartiesByType(type)
-
-  const [selectedPartyId, setSelectedPartyId] = useState(
-    searchParams.get('party') ?? parties[0]?.id ?? '',
-  )
-  const [dateFrom, setDateFrom] = useState('2026-06-01')
-  const [dateTo, setDateTo] = useState('2026-06-17')
-
-  const selectedParty = parties.find((party) => party.id === selectedPartyId) ?? parties[0]
-
-  const partyName = (party: PartyRecord) => (locale === 'ar' ? party.nameAr : party.nameEn)
+  const prefix = type === 'customer' ? 'parties.customerInvoiceStatement' : 'parties.supplierInvoiceStatement'
+  const {
+    parties,
+    selectedParty,
+    selectedPartyId,
+    setSelectedPartyId,
+    dateFrom,
+    setDateFrom,
+    dateTo,
+    setDateTo,
+    partyName,
+    statementLines,
+    vouchersInRange,
+    lineTotals,
+    voucherTotals,
+    lastReconciliation,
+    isCustomer,
+  } = usePartyStatementPageData(type, locale)
 
   const statementTypeMap: Record<StatementEntryType, { text: string; variant: 'info' | 'success' | 'warning' | 'neutral' }> = {
     opening: { text: t('parties.statementTypeOpening'), variant: 'neutral' },
@@ -60,43 +41,8 @@ export function PartyStatementPage({ type }: PartyStatementPageProps) {
     payment: { text: t('parties.statementTypePayment'), variant: 'warning' },
   }
 
-  const statementLines = useMemo(() => {
-    const source = isCustomer ? customerStatements : supplierStatementLines
-    return filterByDateRange(
-      source.filter((line) => line.partyId === selectedParty?.id),
-      dateFrom,
-      dateTo,
-    ).sort((a, b) => a.date.localeCompare(b.date) || a.invoiceNo.localeCompare(b.invoiceNo))
-  }, [isCustomer, selectedParty?.id, dateFrom, dateTo])
-
-  const vouchersInRange = useMemo(() => {
-    const source = isCustomer
-      ? getCustomerVouchers(selectedParty?.id ?? '')
-      : getSupplierVouchers(selectedParty?.id ?? '')
-    return filterByDateRange(source, dateFrom, dateTo).sort(
-      (a, b) => a.date.localeCompare(b.date) || a.ref.localeCompare(b.ref),
-    )
-  }, [isCustomer, selectedParty?.id, dateFrom, dateTo])
-
-  const lineTotals = useMemo(
-    () => (isCustomer ? getCustomerStatementTotals : getSupplierStatementTotals)(statementLines),
-    [isCustomer, statementLines],
-  )
-
-  const voucherTotals = useMemo(
-    () => getPartyVoucherTotals(vouchersInRange),
-    [vouchersInRange],
-  )
-
-  const lastReconciliation = useMemo(
-    () => (isCustomer ? getCustomerReconciliation : getSupplierReconciliation)(selectedPartyId),
-    [isCustomer, selectedPartyId],
-  )
-
   if (!selectedParty) {
-    return (
-      <PageHeader title={t(`${prefix}.title`)} subtitle={t(`${prefix}.empty`)} />
-    )
+    return <PageHeader title={t(`${prefix}.title`)} subtitle={t(`${prefix}.empty`)} />
   }
 
   return (
@@ -139,6 +85,7 @@ export function PartyStatementPage({ type }: PartyStatementPageProps) {
               {t(`${prefix}.print`)}
             </GlossButton>
             <PartyStatementServicesMenu
+              variant="invoice"
               party={selectedParty}
               partyName={partyName(selectedParty)}
               dateFrom={dateFrom}
@@ -222,7 +169,7 @@ export function PartyStatementPage({ type }: PartyStatementPageProps) {
       <div className="card" id="party-statement-print">
         <div className="card-toolbar">
           <span className="card-toolbar__hint">
-            {t('parties.statementHint').replace('{party}', partyName(selectedParty))}
+            {t(`${prefix}.tableHint`).replace('{party}', partyName(selectedParty))}
           </span>
         </div>
 
