@@ -1,13 +1,13 @@
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { GlossButton } from '../../components/ui/GlossButton'
 import { DateInput } from '../../components/ui/DateInput'
-import { Badge } from '../../components/ui/Badge'
 import { formatPartyMoney } from '../../data/parties'
 import { useApp } from '../../context/AppProvider'
 import { formatNumber } from '../../utils/invoiceGrouping'
+import { aggregateLinesByInvoice } from '../../export-templates'
 import { PartyStatementServicesMenu } from './PartyStatementServicesMenu'
 import { usePartyStatementPageData, type PartyStatementPageType } from './usePartyStatementPageData'
-import type { StatementEntryType } from '../../data/parties'
 
 type PartyInvoiceStatementPageProps = {
   type: PartyStatementPageType
@@ -29,16 +29,32 @@ export function PartyInvoiceStatementPage({ type }: PartyInvoiceStatementPagePro
     statementLines,
     vouchersInRange,
     lineTotals,
-    voucherTotals,
-    lastReconciliation,
     isCustomer,
   } = usePartyStatementPageData(type, locale)
 
-  const statementTypeMap: Record<StatementEntryType, { text: string; variant: 'info' | 'success' | 'warning' | 'neutral' }> = {
-    opening: { text: t('parties.statementTypeOpening'), variant: 'neutral' },
-    invoice: { text: t('parties.statementTypeInvoice'), variant: 'info' },
-    receipt: { text: t('parties.statementTypeReceipt'), variant: 'success' },
-    payment: { text: t('parties.statementTypePayment'), variant: 'warning' },
+  const [expandedInvoiceNo, setExpandedInvoiceNo] = useState<string | null>(null)
+
+  useEffect(() => {
+    setExpandedInvoiceNo(null)
+  }, [selectedPartyId, dateFrom, dateTo])
+
+  const invoiceRows = useMemo(
+    () => aggregateLinesByInvoice(statementLines, locale),
+    [statementLines, locale],
+  )
+
+  const linesByInvoice = useMemo(() => {
+    const map = new Map<string, typeof statementLines>()
+    for (const line of statementLines) {
+      const bucket = map.get(line.invoiceNo) ?? []
+      bucket.push(line)
+      map.set(line.invoiceNo, bucket)
+    }
+    return map
+  }, [statementLines])
+
+  const toggleInvoice = (invoiceNo: string) => {
+    setExpandedInvoiceNo((current) => (current === invoiceNo ? null : invoiceNo))
   }
 
   if (!selectedParty) {
@@ -111,39 +127,10 @@ export function PartyInvoiceStatementPage({ type }: PartyInvoiceStatementPagePro
               <strong>{formatPartyMoney(selectedParty.balance, selectedParty.currency)}</strong>
             </div>
             <div className="party-statement__meta-stat">
-              <span>{t('parties.colInvoices')}</span>
-              <strong>{selectedParty.invoiceCount}</strong>
+              <span>{t(`${prefix}.kpiInvoices`)}</span>
+              <strong>{invoiceRows.length}</strong>
             </div>
           </div>
-
-          {lastReconciliation && (
-            <div className="party-statement__reconcile-group">
-              <div className="party-statement__meta-stat">
-                <span>{t(`${prefix}.reconcileDate`)}</span>
-                <strong>{lastReconciliation.date}</strong>
-              </div>
-              <div className="party-statement__meta-stat">
-                <span>{t(`${prefix}.reconcileInvoices`)}</span>
-                <strong>{formatPartyMoney(lastReconciliation.invoicesTotal, selectedParty.currency)}</strong>
-              </div>
-              {lastReconciliation.receiptsTotal > 0 && (
-                <div className="party-statement__meta-stat">
-                  <span>{t(`${prefix}.reconcileReceipts`)}</span>
-                  <strong>{formatPartyMoney(lastReconciliation.receiptsTotal, selectedParty.currency)}</strong>
-                </div>
-              )}
-              {lastReconciliation.paymentsTotal > 0 && (
-                <div className="party-statement__meta-stat party-statement__meta-stat--payment">
-                  <span>{t(`${prefix}.reconcilePayments`)}</span>
-                  <strong>{formatPartyMoney(lastReconciliation.paymentsTotal, selectedParty.currency)}</strong>
-                </div>
-              )}
-              <div className="party-statement__meta-stat party-statement__meta-stat--accent">
-                <span>{t(`${prefix}.reconcileBalance`)}</span>
-                <strong>{formatPartyMoney(lastReconciliation.closingBalance, selectedParty.currency)}</strong>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="party-statement__panel-section party-statement__panel-section--kpi">
@@ -171,12 +158,16 @@ export function PartyInvoiceStatementPage({ type }: PartyInvoiceStatementPagePro
           <span className="card-toolbar__hint">
             {t(`${prefix}.tableHint`).replace('{party}', partyName(selectedParty))}
           </span>
+          <span className="card-toolbar__hint card-toolbar__hint--muted">
+            {t(`${prefix}.expandHint`)}
+          </span>
         </div>
 
         <div className="table-wrap">
-          <table className="data-table data-table--statement">
+          <table className="data-table data-table--statement data-table--invoice-expand">
             <thead>
               <tr>
+                <th className="party-statement__col-expand" aria-hidden="true" />
                 <th>{t(`${prefix}.colGoodsType`)}</th>
                 <th>{t(`${prefix}.colPieces`)}</th>
                 <th>{t(`${prefix}.colLengths`)}</th>
@@ -188,26 +179,79 @@ export function PartyInvoiceStatementPage({ type }: PartyInvoiceStatementPagePro
               </tr>
             </thead>
             <tbody>
-              {statementLines.map((line) => (
-                <tr key={line.id}>
-                  <td><strong>{locale === 'ar' ? line.goodsTypeAr : line.goodsTypeEn}</strong></td>
-                  <td className="data-table__number">{line.pieces}</td>
-                  <td className="data-table__number">
-                    {formatNumber(line.totalLength)} {locale === 'ar' ? line.unitAr : line.unitEn}
-                  </td>
-                  <td className="data-table__number">{line.unitPrice}</td>
-                  <td className="data-table__number">
-                    <strong>{formatPartyMoney(line.lineTotal, selectedParty.currency)}</strong>
-                  </td>
-                  <td><span className="invoice-no">{line.invoiceNo}</span></td>
-                  <td>{line.date}</td>
-                  <td>{locale === 'ar' ? line.notesAr : line.notesEn}</td>
-                </tr>
-              ))}
+              {invoiceRows.map((row) => {
+                const isExpanded = expandedInvoiceNo === row.invoiceNo
+                const details = linesByInvoice.get(row.invoiceNo) ?? []
+
+                return (
+                  <Fragment key={row.invoiceNo}>
+                    <tr
+                      className={`party-statement__invoice-row${isExpanded ? ' party-statement__invoice-row--expanded' : ''}`}
+                      onClick={() => toggleInvoice(row.invoiceNo)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          toggleInvoice(row.invoiceNo)
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      aria-label={`${row.invoiceNo} — ${t(`${prefix}.expandHint`)}`}
+                    >
+                      <td className="party-statement__col-expand" aria-hidden="true">
+                        <span className={`party-statement__expand-icon${isExpanded ? ' party-statement__expand-icon--open' : ''}`}>
+                          ▸
+                        </span>
+                      </td>
+                      <td>
+                        <strong>{locale === 'ar' ? row.goodsSummaryAr : row.goodsSummaryEn}</strong>
+                        <span className="party-statement__invoice-badge">
+                          {t(`${prefix}.invoiceSummary`).replace('{count}', String(row.lineCount))}
+                        </span>
+                      </td>
+                      <td className="data-table__number">{row.pieces}</td>
+                      <td className="data-table__number">
+                        {formatNumber(row.totalLength)} {locale === 'ar' ? row.unitAr : row.unitEn}
+                      </td>
+                      <td className="data-table__number">{row.avgUnitPrice}</td>
+                      <td className="data-table__number">
+                        <strong>{formatPartyMoney(row.invoiceTotal, selectedParty.currency)}</strong>
+                      </td>
+                      <td><span className="invoice-no">{row.invoiceNo}</span></td>
+                      <td>{row.date}</td>
+                      <td>{locale === 'ar' ? row.notesAr : row.notesEn}</td>
+                    </tr>
+
+                    {isExpanded &&
+                      details.map((line) => (
+                        <tr key={line.id} className="party-statement__invoice-detail-row">
+                          <td className="party-statement__col-expand" />
+                          <td>
+                            <span className="party-statement__detail-label">{t(`${prefix}.detailLine`)}</span>
+                            {locale === 'ar' ? line.goodsTypeAr : line.goodsTypeEn}
+                          </td>
+                          <td className="data-table__number">{line.pieces}</td>
+                          <td className="data-table__number">
+                            {formatNumber(line.totalLength)} {locale === 'ar' ? line.unitAr : line.unitEn}
+                          </td>
+                          <td className="data-table__number">{line.unitPrice}</td>
+                          <td className="data-table__number">
+                            {formatPartyMoney(line.lineTotal, selectedParty.currency)}
+                          </td>
+                          <td><span className="invoice-no">{line.invoiceNo}</span></td>
+                          <td>{line.date}</td>
+                          <td>{locale === 'ar' ? line.notesAr : line.notesEn}</td>
+                        </tr>
+                      ))}
+                  </Fragment>
+                )
+              })}
             </tbody>
             {statementLines.length > 0 && (
               <tfoot>
                 <tr className="invoice-table__grand-total">
+                  <td />
                   <td><strong>{t(`${prefix}.footerTotal`)}</strong></td>
                   <td className="data-table__number"><strong>{formatNumber(lineTotals.pieces)}</strong></td>
                   <td className="data-table__number"><strong>{formatNumber(lineTotals.lengths)}</strong></td>
@@ -221,66 +265,6 @@ export function PartyInvoiceStatementPage({ type }: PartyInvoiceStatementPagePro
             )}
           </table>
         </div>
-
-        {vouchersInRange.length > 0 && (
-          <div className="party-statement__vouchers">
-            <h3 className="party-statement__vouchers-title">{t(`${prefix}.vouchersTitle`)}</h3>
-            <div className="table-wrap">
-              <table className="data-table data-table--statement data-table--vouchers">
-                <thead>
-                  <tr>
-                    <th>{t(`${prefix}.colDate`)}</th>
-                    <th>{t(`${prefix}.colVoucherType`)}</th>
-                    <th>{t(`${prefix}.colVoucherRef`)}</th>
-                    <th>{t(`${prefix}.colVoucherAmount`)}</th>
-                    <th>{t(`${prefix}.colNotes`)}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {vouchersInRange.map((voucher) => {
-                    const voucherType = statementTypeMap[voucher.type]
-                    return (
-                      <tr key={voucher.id}>
-                        <td>{voucher.date}</td>
-                        <td>
-                          <Badge variant={voucherType.variant}>{voucherType.text}</Badge>
-                        </td>
-                        <td><span className="invoice-no">{voucher.ref}</span></td>
-                        <td className="data-table__number">
-                          <strong className={voucher.type === 'payment' ? 'party-statement__amount--payment' : 'party-statement__amount--receipt'}>
-                            {formatPartyMoney(voucher.amount, selectedParty.currency)}
-                          </strong>
-                        </td>
-                        <td>{locale === 'ar' ? voucher.noteAr : voucher.noteEn}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="invoice-table__grand-total">
-                    <td colSpan={5}>
-                      <strong>
-                        {voucherTotals.receipts > 0 && (
-                          <span>
-                            {t(`${prefix}.voucherFooterReceipts`)}:{' '}
-                            {formatPartyMoney(voucherTotals.receipts, selectedParty.currency)}
-                          </span>
-                        )}
-                        {voucherTotals.receipts > 0 && voucherTotals.payments > 0 && ' · '}
-                        {voucherTotals.payments > 0 && (
-                          <span>
-                            {t(`${prefix}.voucherFooterPayments`)}:{' '}
-                            {formatPartyMoney(voucherTotals.payments, selectedParty.currency)}
-                          </span>
-                        )}
-                      </strong>
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        )}
       </div>
     </>
   )

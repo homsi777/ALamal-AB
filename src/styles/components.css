@@ -2441,6 +2441,69 @@ html[dir='ltr'] .classification-ladder__arrow {
   color: var(--color-text-muted);
 }
 
+.party-statement__invoice-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.party-statement__invoice-row:hover td {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.party-statement__invoice-row--expanded td {
+  background: rgba(59, 130, 246, 0.1);
+  border-bottom-color: transparent;
+}
+
+.party-statement__col-expand {
+  width: 2rem;
+  text-align: center;
+  color: var(--color-text-muted);
+  padding-inline: var(--space-2) !important;
+}
+
+.party-statement__expand-icon {
+  display: inline-block;
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+[dir='rtl'] .party-statement__expand-icon {
+  transform: rotate(180deg);
+}
+
+.party-statement__expand-icon--open {
+  transform: rotate(90deg);
+}
+
+[dir='rtl'] .party-statement__expand-icon--open {
+  transform: rotate(90deg);
+}
+
+.party-statement__invoice-badge {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.party-statement__invoice-detail-row td {
+  background: rgba(148, 163, 184, 0.08);
+  font-size: var(--font-size-xs);
+  border-top-style: dashed;
+}
+
+.party-statement__detail-label {
+  margin-inline-end: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+.card-toolbar__hint--muted {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
 .party-statement__row--reconcile td {
   background: rgba(153, 27, 27, 0.28) !important;
   border-color: rgba(127, 29, 29, 0.55);
