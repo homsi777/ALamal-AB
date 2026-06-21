@@ -37,6 +37,17 @@ export type ReportsWorkspaceSection = {
   modules: ReportModuleWorkspace[]
 }
 
+export function reportModuleIdFromTitleKey(titleKey: string) {
+  const moduleKey = titleKey.split('.modules.')[1]?.replace('.title', '') ?? titleKey
+  return moduleKey.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)
+}
+
+export function findReportModule(sectionId: ReportsSectionId, moduleId: string) {
+  return REPORTS_WORKSPACE[sectionId].modules.find(
+    (module) => reportModuleIdFromTitleKey(module.moduleTitleKey) === moduleId,
+  )
+}
+
 const ready: ReportText = { ar: 'جاهز', en: 'Ready' }
 const review: ReportText = { ar: 'قيد المراجعة', en: 'In review' }
 const exported: ReportText = { ar: 'تم التصدير', en: 'Exported' }
