@@ -6,6 +6,34 @@ export type ReportText = {
 }
 
 export type ReportStatus = 'success' | 'warning' | 'danger' | 'info' | 'neutral'
+export type ReportFilterType =
+  | 'dateRange'
+  | 'account'
+  | 'customer'
+  | 'supplier'
+  | 'currency'
+  | 'branch'
+  | 'costCenter'
+  | 'status'
+  | 'taxPeriod'
+  | 'bankAccount'
+  | 'assetType'
+  | 'item'
+  | 'comparisonPeriod'
+  | 'groupBy'
+
+export type ReportLayoutType =
+  | 'financial-statement'
+  | 'statement'
+  | 'aging'
+  | 'budget'
+  | 'treasury'
+  | 'fixed-assets'
+  | 'tax'
+  | 'cost'
+  | 'bi'
+
+export type ReportExportAction = 'print' | 'pdf' | 'excel'
 
 export type ReportStat = {
   label: ReportText
@@ -29,6 +57,14 @@ export type ReportModuleWorkspace = {
   summary: ReportText
   primaryAction: ReportText
   rows: ReportRow[]
+  reportType?: string
+  filters?: ReportFilterType[]
+  summaryMetrics?: string[]
+  resultLayout?: ReportLayoutType
+  exportActions?: ReportExportAction[]
+  printableTitle?: ReportText
+  defaultDateBehavior?: 'current-month' | 'current-year' | 'today' | 'custom'
+  comparisonSupport?: boolean
 }
 
 export type ReportsWorkspaceSection = {
@@ -46,6 +82,85 @@ export function findReportModule(sectionId: ReportsSectionId, moduleId: string) 
   return REPORTS_WORKSPACE[sectionId].modules.find(
     (module) => reportModuleIdFromTitleKey(module.moduleTitleKey) === moduleId,
   )
+}
+
+export function getReportModuleMeta(sectionId: ReportsSectionId, module: ReportModuleWorkspace) {
+  const id = reportModuleIdFromTitleKey(module.moduleTitleKey)
+  const isStatement = id.includes('statement') || id === 'journal-detail' || id === 'trial-balance'
+  const isAging = id.includes('aging') || id === 'payment-due' || id === 'overdue-risk'
+
+  const layout: ReportLayoutType =
+    sectionId === 'financial-statements'
+      ? 'financial-statement'
+      : sectionId === 'accounts' && isAging
+        ? 'aging'
+        : sectionId === 'accounts' && isStatement
+          ? 'statement'
+          : sectionId === 'budget-analysis'
+            ? 'budget'
+            : sectionId === 'treasury'
+              ? 'treasury'
+              : sectionId === 'fixed-assets'
+                ? 'fixed-assets'
+                : sectionId === 'tax'
+                  ? 'tax'
+                  : sectionId === 'cost'
+                    ? 'cost'
+                    : 'bi'
+
+  const filters: ReportFilterType[] =
+    module.filters ??
+    (sectionId === 'financial-statements'
+      ? ['dateRange', 'comparisonPeriod', 'currency', 'branch']
+      : sectionId === 'accounts' && id.includes('customer')
+        ? ['dateRange', 'customer', 'currency', 'status']
+        : sectionId === 'accounts' && id.includes('supplier')
+          ? ['dateRange', 'supplier', 'currency', 'status']
+          : sectionId === 'accounts'
+            ? ['dateRange', 'account', 'currency', 'costCenter', 'status']
+            : sectionId === 'budget-analysis'
+              ? ['dateRange', 'comparisonPeriod', 'costCenter', 'branch', 'groupBy']
+              : sectionId === 'treasury'
+                ? ['dateRange', 'bankAccount', 'currency', 'status']
+                : sectionId === 'fixed-assets'
+                  ? ['dateRange', 'assetType', 'branch', 'status']
+                  : sectionId === 'tax'
+                    ? ['taxPeriod', 'dateRange', 'status', 'currency']
+                    : sectionId === 'cost'
+                      ? ['dateRange', 'item', 'customer', 'costCenter', 'groupBy']
+                      : ['dateRange', 'comparisonPeriod', 'branch', 'groupBy'])
+
+  const summaryMetrics =
+    module.summaryMetrics ??
+    (layout === 'financial-statement'
+      ? ['totalAssets', 'totalLiabilities', 'netProfit', 'variance']
+      : layout === 'statement'
+        ? ['openingBalance', 'totalDebit', 'totalCredit', 'closingBalance']
+        : layout === 'aging'
+          ? ['totalAmount', 'currentBucket', 'overdueBucket', 'riskCount']
+          : layout === 'budget'
+            ? ['actual', 'planned', 'varianceAmount', 'variancePercent']
+            : layout === 'treasury'
+              ? ['cashIn', 'cashOut', 'netMovement', 'unmatched']
+              : layout === 'fixed-assets'
+                ? ['acquisitionCost', 'accumulatedDepreciation', 'bookValue', 'assetCount']
+                : layout === 'tax'
+                  ? ['inputTax', 'outputTax', 'taxDue', 'complianceAlerts']
+                  : layout === 'cost'
+                    ? ['revenue', 'cost', 'grossMargin', 'marginPercent']
+                    : ['kpiCount', 'trend', 'alerts', 'scheduledExports'])
+
+  return {
+    id,
+    reportType: module.reportType ?? id,
+    filters,
+    summaryMetrics,
+    resultLayout: module.resultLayout ?? layout,
+    exportActions: module.exportActions ?? (['print', 'pdf', 'excel'] as ReportExportAction[]),
+    printableTitle: module.printableTitle ?? module.primaryAction,
+    defaultDateBehavior: module.defaultDateBehavior ?? 'current-month',
+    comparisonSupport: module.comparisonSupport ?? filters.includes('comparisonPeriod'),
+  }
 }
 
 const ready: ReportText = { ar: 'جاهز', en: 'Ready' }

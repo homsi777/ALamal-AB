@@ -1,15 +1,18 @@
+import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { PageHeader } from '../../components/ui/PageHeader'
-import { GlossButton } from '../../components/ui/GlossButton'
-import { Badge } from '../../components/ui/Badge'
-import { StatCard } from '../../components/ui/StatCard'
 import { REPORTS_SECTIONS, type ReportsSectionId } from '../../data/reportsSections'
 import {
   findReportModule,
-  REPORTS_WORKSPACE,
-  type ReportModuleWorkspace,
+  getReportModuleMeta,
   type ReportText,
 } from '../../data/reportsWorkspace'
+import { ReportActionBar } from '../../components/reports/ReportActionBar'
+import { ReportEmptyState } from '../../components/reports/ReportEmptyState'
+import { ReportFilterBar, type ReportFilters } from '../../components/reports/ReportFilterBar'
+import { ReportResultRenderer } from '../../components/reports/ReportResultRenderer'
+import { ReportSummaryStrip, type ReportMetric } from '../../components/reports/ReportSummaryStrip'
+import { ReportTaskShell } from '../../components/reports/ReportTaskShell'
+import { exportReportExcel, exportReportPdf, printReport } from '../../utils/reportExport'
 import { useApp } from '../../context/AppProvider'
 
 const REPORT_SECTION_IDS = Object.keys(REPORTS_SECTIONS) as ReportsSectionId[]
@@ -18,17 +21,81 @@ function isReportsSectionId(value: string | undefined): value is ReportsSectionI
   return !!value && REPORT_SECTION_IDS.includes(value as ReportsSectionId)
 }
 
+function defaultFilters(): ReportFilters {
+  return {
+    fromDate: '2026-06-01',
+    toDate: '2026-06-21',
+    currency: 'USD',
+  }
+}
+
+function metricValue(metric: string, index: number) {
+  const values: Record<string, string> = {
+    totalAssets: '$186,500',
+    totalLiabilities: '$42,750',
+    netProfit: '$31,240',
+    variance: '+8.2%',
+    openingBalance: '$12,500',
+    totalDebit: '$42,800',
+    totalCredit: '$30,500',
+    closingBalance: '$24,800',
+    totalAmount: '$91,300',
+    currentBucket: '$42,800',
+    overdueBucket: '$16,400',
+    riskCount: '5',
+    actual: '$128,400',
+    planned: '$118,000',
+    varianceAmount: '$10,400',
+    variancePercent: '+9.1%',
+    cashIn: '$34,200',
+    cashOut: '$15,300',
+    netMovement: '$18,900',
+    unmatched: '5',
+    acquisitionCost: '$248,000',
+    accumulatedDepreciation: '$34,000',
+    bookValue: '$214,000',
+    assetCount: '86',
+    inputTax: '$3,940',
+    outputTax: '$8,320',
+    taxDue: '$4,380',
+    complianceAlerts: '3',
+    revenue: '$128,400',
+    cost: '$46,200',
+    grossMargin: '$31,240',
+    marginPercent: '31.8%',
+    kpiCount: '18',
+    trend: '+9.1%',
+    alerts: '4',
+    scheduledExports: '9',
+  }
+
+  return values[metric] ?? (index === 0 ? '$128,400' : index === 1 ? '$42,750' : '18.6%')
+}
+
+function buildMetrics(metricKeys: string[]): ReportMetric[] {
+  return metricKeys.map((key, index) => ({
+    key,
+    value: metricValue(key, index),
+    tone: key.toLowerCase().includes('alert') || key.toLowerCase().includes('risk') || key === 'unmatched'
+      ? 'warning'
+      : key.toLowerCase().includes('margin') || key.toLowerCase().includes('profit') || key === 'netMovement'
+        ? 'success'
+        : 'neutral',
+  }))
+}
+
 export function ReportsModulePage() {
   const { sectionId, moduleId } = useParams()
   const navigate = useNavigate()
   const { locale, t } = useApp()
+  const [filters, setFilters] = useState<ReportFilters>(() => defaultFilters())
+  const [appliedFilters, setAppliedFilters] = useState<ReportFilters | null>(null)
 
   if (!isReportsSectionId(sectionId)) {
     return <Navigate to="/reports/financial-statements" replace />
   }
 
   const section = REPORTS_SECTIONS[sectionId]
-  const workspace = REPORTS_WORKSPACE[sectionId]
   const module = moduleId ? findReportModule(sectionId, moduleId) : undefined
   const text = (value: ReportText) => value[locale]
 
@@ -36,116 +103,56 @@ export function ReportsModulePage() {
     return <Navigate to={`/reports/${sectionId}`} replace />
   }
 
+  const meta = getReportModuleMeta(sectionId, module)
+  const metrics = buildMetrics(meta.summaryMetrics)
+  const isApplied = !!appliedFilters
+
+  const exportContext = {
+    locale,
+    title: t(module.moduleTitleKey),
+    sectionName: t(section.titleKey),
+    description: text(module.summary),
+    module,
+    filters: appliedFilters ?? filters,
+    metrics,
+  }
+
   return (
-    <>
-      <PageHeader
-        title={t(module.moduleTitleKey)}
-        subtitle={`${t(section.titleKey)} - ${text(module.summary)}`}
-        actions={
-          <>
-            <GlossButton variant="ghost" onClick={() => navigate(`/reports/${sectionId}`)}>
-              {text({ ar: 'رجوع', en: 'Back' })}
-            </GlossButton>
-            <GlossButton variant="ghost">{text(module.primaryAction)}</GlossButton>
-            <GlossButton variant="ghost">{t('common.export')}</GlossButton>
-          </>
-        }
-      />
-
-      <div className="stat-grid stat-grid--4 reports-workspace__stats">
-        {workspace.stats.map((stat) => (
-          <StatCard
-            key={text(stat.label)}
-            title={text(stat.label)}
-            value={stat.value}
-            delta={text(stat.delta)}
-            trend={stat.trend}
-          />
-        ))}
-      </div>
-
-      <ReportTaskPanel module={module} workflow={workspace.workflow} text={text} />
-    </>
-  )
-}
-
-type ReportTaskPanelProps = {
-  module: ReportModuleWorkspace
-  workflow: ReportText[]
-  text: (value: ReportText) => string
-}
-
-function ReportTaskPanel({ module, workflow, text }: ReportTaskPanelProps) {
-  return (
-    <div className="card reports-workspace__panel">
-      <div className="reports-workspace__panel-head">
-        <div>
-          <h2 className="reports-workspace__panel-title">{text(module.primaryAction)}</h2>
-          <p className="reports-workspace__panel-summary">{text(module.summary)}</p>
-        </div>
-        <div className="reports-workspace__workflow" aria-label={text(module.primaryAction)}>
-          {workflow.map((step, index) => (
-            <span key={text(step)} className="reports-workspace__workflow-step">
-              <span className="reports-workspace__workflow-index">{index + 1}</span>
-              {text(step)}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="table-wrap">
-        <table className="data-table reports-workspace__table">
-          <thead>
-            <tr>
-              <th>{text({ ar: 'المرجع', en: 'Reference' })}</th>
-              <th>{text({ ar: 'التقرير', en: 'Report' })}</th>
-              <th>{text({ ar: 'الفترة', en: 'Period' })}</th>
-              <th>{text({ ar: 'القيمة', en: 'Value' })}</th>
-              <th>{text({ ar: 'المسؤول', en: 'Owner' })}</th>
-              <th>{text({ ar: 'الحالة', en: 'Status' })}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {module.rows.map((row) => (
-              <tr key={row.ref}>
-                <td><span className="entry-no">{row.ref}</span></td>
-                <td>{text(row.subject)}</td>
-                <td>{row.period}</td>
-                <td className="data-table__number">{row.value}</td>
-                <td>{text(row.owner)}</td>
-                <td><Badge variant={row.variant}>{text(row.status)}</Badge></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mobile-list">
-        {module.rows.map((row) => (
-          <div key={row.ref} className="mobile-list__item">
-            <div className="mobile-list__row">
-              <span className="entry-no">{row.ref}</span>
-              <Badge variant={row.variant}>{text(row.status)}</Badge>
-            </div>
-            <div className="mobile-list__row">
-              <span className="mobile-list__label">{text({ ar: 'التقرير', en: 'Report' })}</span>
-              <span className="mobile-list__value">{text(row.subject)}</span>
-            </div>
-            <div className="mobile-list__row">
-              <span className="mobile-list__label">{text({ ar: 'الفترة', en: 'Period' })}</span>
-              <span className="mobile-list__value">{row.period}</span>
-            </div>
-            <div className="mobile-list__row">
-              <span className="mobile-list__label">{text({ ar: 'القيمة', en: 'Value' })}</span>
-              <span className="mobile-list__value">{row.value}</span>
-            </div>
-            <div className="mobile-list__row">
-              <span className="mobile-list__label">{text({ ar: 'المسؤول', en: 'Owner' })}</span>
-              <span className="mobile-list__value">{text(row.owner)}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    <ReportTaskShell
+      locale={locale}
+      title={t(module.moduleTitleKey)}
+      sectionName={t(section.titleKey)}
+      description={text(module.summary)}
+      onBack={() => navigate(`/reports/${sectionId}`)}
+      filters={
+        <ReportFilterBar
+          locale={locale}
+          filters={meta.filters}
+          values={filters}
+          onChange={(key, value) => setFilters((current) => ({ ...current, [key]: value }))}
+        />
+      }
+      actions={
+        <ReportActionBar
+          locale={locale}
+          isApplied={isApplied}
+          onApply={() => setAppliedFilters(filters)}
+          onClear={() => {
+            setFilters(defaultFilters())
+            setAppliedFilters(null)
+          }}
+          onPrint={() => printReport(exportContext)}
+          onPdf={() => exportReportPdf(exportContext)}
+          onExcel={() => exportReportExcel(exportContext)}
+        />
+      }
+      summary={isApplied ? <ReportSummaryStrip locale={locale} metrics={metrics} /> : undefined}
+    >
+      {isApplied ? (
+        <ReportResultRenderer locale={locale} layout={meta.resultLayout} module={module} />
+      ) : (
+        <ReportEmptyState locale={locale} />
+      )}
+    </ReportTaskShell>
   )
 }

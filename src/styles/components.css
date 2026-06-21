@@ -199,6 +199,274 @@
   white-space: nowrap;
 }
 
+.report-task-shell__workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.report-filter-bar {
+  padding: var(--space-5);
+  border: 1px solid rgba(14, 165, 233, 0.18);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), var(--color-bg-elevated));
+  box-shadow: var(--shadow-sm);
+}
+
+.report-filter-bar__title {
+  margin-bottom: var(--space-4);
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.report-filter-bar__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: var(--space-3);
+}
+
+.report-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.report-field span {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.report-field input,
+.report-field select {
+  min-height: 42px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+
+.report-action-bar,
+.report-export-menu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.report-action-bar {
+  justify-content: space-between;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+}
+
+.report-action-bar__primary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.report-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: var(--space-3);
+}
+
+.report-summary-strip__item {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+}
+
+.report-summary-strip__item span {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.report-summary-strip__item strong {
+  font-size: var(--font-size-xl);
+  color: var(--color-text-primary);
+}
+
+.report-summary-strip__item--success {
+  border-color: rgba(5, 150, 105, 0.28);
+  background: rgba(5, 150, 105, 0.08);
+}
+
+.report-summary-strip__item--warning {
+  border-color: rgba(217, 119, 6, 0.3);
+  background: rgba(217, 119, 6, 0.08);
+}
+
+.report-empty-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 220px;
+  padding: var(--space-8);
+  border: 1px dashed rgba(14, 165, 233, 0.35);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+}
+
+.report-empty-state__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: var(--radius-lg);
+  background: rgba(14, 165, 233, 0.12);
+  color: var(--color-info);
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.report-empty-state h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xl);
+}
+
+.report-empty-state p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.report-task-shell__result {
+  min-height: 260px;
+}
+
+.report-result,
+.report-result--statement-form,
+.report-aging-grid,
+.report-variance-list,
+.report-treasury-flow,
+.report-tax-layout,
+.report-cost-layout,
+.report-bi-board {
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
+}
+
+.report-result--statement-form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.report-result__section h3 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+}
+
+.report-result__line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.report-result__line--strong {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid rgba(201, 162, 39, 0.25);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+}
+
+.report-statement-ledger__opening,
+.report-statement-ledger__closing {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: rgba(5, 150, 105, 0.08);
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.report-statement-ledger__closing {
+  margin-top: var(--space-4);
+  margin-bottom: 0;
+}
+
+.report-aging-grid,
+.report-bi-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: var(--space-3);
+}
+
+.report-aging-grid__bucket,
+.report-bi-board__tile,
+.report-treasury-flow__item,
+.report-tax-layout__line,
+.report-cost-layout__row,
+.report-variance-list__row {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+}
+
+.report-aging-grid__bucket strong,
+.report-bi-board__tile strong,
+.report-treasury-flow__item strong,
+.report-tax-layout__line strong {
+  display: block;
+  margin: var(--space-2) 0;
+  font-size: var(--font-size-xl);
+}
+
+.report-variance-list,
+.report-cost-layout,
+.report-tax-layout,
+.report-treasury-flow {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.report-treasury-flow__main,
+.report-tax-layout__net {
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: rgba(5, 150, 105, 0.1);
+  border: 1px solid rgba(5, 150, 105, 0.25);
+}
+
+.report-treasury-flow__main strong,
+.report-tax-layout__net strong {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: var(--font-size-2xl);
+  color: var(--color-success);
+}
+
+.report-value--success {
+  color: var(--color-success);
+  font-weight: 700;
+}
+
+.report-value--danger {
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
 .btn::after {
   content: '';
   position: absolute;

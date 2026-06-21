@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { PageHeader } from '../../components/ui/PageHeader'
-import { GlossButton } from '../../components/ui/GlossButton'
 import { REPORTS_SECTIONS, type ReportModuleItem, type ReportsSectionId } from '../../data/reportsSections'
 import { StatCard } from '../../components/ui/StatCard'
 import { REPORTS_WORKSPACE, reportModuleIdFromTitleKey, type ReportText } from '../../data/reportsWorkspace'
@@ -46,12 +45,6 @@ export function ReportsSectionPage({ sectionId }: ReportsSectionPageProps) {
       <PageHeader
         title={t(section.titleKey)}
         subtitle={t(section.subtitleKey)}
-        actions={
-          <>
-            <GlossButton variant="ghost">{t('common.export')}</GlossButton>
-            <GlossButton variant="ghost">{t('common.comingSoon')}</GlossButton>
-          </>
-        }
       />
 
       <div className="stat-grid stat-grid--4 reports-workspace__stats">
