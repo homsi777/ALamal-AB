@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { FinanceSectionPage } from './finance/FinanceSectionPage'
+import { FinanceTaskPage } from './finance/FinanceTaskPage'
 
 export function FinancePage() {
   return (
@@ -13,6 +14,7 @@ export function FinancePage() {
       <Route path="budgeting" element={<FinanceSectionPage sectionId="budgeting" />} />
       <Route path="tax" element={<FinanceSectionPage sectionId="tax" />} />
       <Route path="cost" element={<FinanceSectionPage sectionId="cost" />} />
+      <Route path=":sectionId/:taskId" element={<FinanceTaskPage />} />
     </Routes>
   )
 }
