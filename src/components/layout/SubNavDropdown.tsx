@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useApp } from '../../context/AppProvider'
@@ -12,7 +12,7 @@ export type SubNavItem = {
 }
 
 type SubNavDropdownProps = {
-  icon: string
+  icon: ReactNode
   labelKey: string
   basePath: string
   items: SubNavItem[]
@@ -146,7 +146,7 @@ export function SubNavDropdown({ icon, labelKey, basePath, items }: SubNavDropdo
           aria-expanded={open}
           aria-haspopup="true"
         >
-          <span>{icon}</span>
+          {icon}
           {t(labelKey)}
           <span className={`nav-dropdown__arrow ${open ? 'nav-dropdown__arrow--open' : ''}`}>▾</span>
         </button>

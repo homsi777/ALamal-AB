@@ -246,7 +246,7 @@ export const FINANCE_WORKSPACE: Record<FinanceSectionId, FinanceWorkspaceSection
       {
         moduleTitleKey: 'finance.sections.treasury.modules.cashBoxes.title',
         summary: { ar: 'إدارة الصناديق اليومية والعهد مع إقفال ومطابقة نهاية اليوم.', en: 'Daily cash drawers and petty cash with end-of-day close.' },
-        primaryAction: { ar: 'إقفال صندوق', en: 'Close cash box' },
+        primaryAction: { ar: 'إدارة الصناديق والمناقلات', en: 'Manage cashboxes and transfers' },
         rows: [
           { ref: 'BOX-01', subject: { ar: 'صندوق المعرض', en: 'Showroom cash box' }, owner: { ar: 'أمين الصندوق', en: 'Cashier' }, amount: '$8,400', date: '2026-06-21', status: approval, variant: 'warning' },
           { ref: 'BOX-02', subject: { ar: 'عهدة مشتريات صغيرة', en: 'Petty cash' }, owner: { ar: 'الإدارة', en: 'Admin' }, amount: '$1,200', date: '2026-06-21', status: posted, variant: 'success' },

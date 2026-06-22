@@ -530,6 +530,7 @@ export const translations = {
       sub: {
         customers: 'العملاء',
         customersRegister: 'سجل العملاء',
+        customerOpeningBalance: 'عميل أول مدة',
         customerStatement: 'كشف عميل',
         customerInvoiceStatement: 'كشف فاتورة',
         suppliers: 'الموردون',
@@ -1629,6 +1630,7 @@ export const translations = {
       sub: {
         customers: 'Customers',
         customersRegister: 'Customer register',
+        customerOpeningBalance: 'Customer opening balance',
         customerStatement: 'Customer account',
         customerInvoiceStatement: 'Invoice statement',
         suppliers: 'Suppliers',

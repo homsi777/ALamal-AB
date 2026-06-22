@@ -1,6 +1,18 @@
+import { useMemo, useState } from 'react'
 import { Badge } from '../ui/Badge'
 import type { FinanceTaskWorkspace } from '../../data/financeTaskWorkspace'
 import type { FinanceStatus } from '../../data/financeWorkspace'
+import {
+  cashboxKindLabels,
+  cashboxTransferStatusLabels,
+  cashboxTransfers,
+  formatCashboxAmount,
+  treasuryCashboxes,
+  type CashboxCurrency,
+  type CashboxKind,
+  type CashboxTransfer,
+  type TreasuryCashbox,
+} from '../../data/treasuryCashboxes'
 import { text } from './financeLabels'
 
 type FinanceResultRendererProps = {
@@ -161,6 +173,10 @@ export function FinanceResultRenderer({ workspace, locale }: FinanceResultRender
     return <JournalEntryWorkspace locale={locale} />
   }
 
+  if (layout === 'cashboxes') {
+    return <CashboxesWorkspace locale={locale} />
+  }
+
   if (rows && columns) {
     return <FinanceSpecificTable rows={rows} columns={columns} />
   }
@@ -209,6 +225,300 @@ function JournalEntryWorkspace({ locale }: { locale: 'ar' | 'en' }) {
         <div><span>{locale === 'ar' ? 'إجمالي المدين' : 'Total debit'}</span><strong>$4,250</strong></div>
         <div><span>{locale === 'ar' ? 'إجمالي الدائن' : 'Total credit'}</span><strong>$4,250</strong></div>
         <div><span>{locale === 'ar' ? 'الفرق' : 'Difference'}</span><strong>$0.00</strong></div>
+      </div>
+    </div>
+  )
+}
+
+type CashboxModal = 'create' | 'transfer' | null
+
+function CashboxesWorkspace({ locale }: { locale: 'ar' | 'en' }) {
+  const [cashboxes, setCashboxes] = useState<TreasuryCashbox[]>(treasuryCashboxes)
+  const [transfers, setTransfers] = useState<CashboxTransfer[]>(cashboxTransfers)
+  const [modal, setModal] = useState<CashboxModal>(null)
+  const [createForm, setCreateForm] = useState({
+    name: 'صندوق فرع جديد',
+    branch: 'دمشق',
+    responsible: 'أمين الصندوق',
+    currency: 'USD' as CashboxCurrency,
+    kind: 'branch' as CashboxKind,
+    openingBalance: '0',
+  })
+  const [transferForm, setTransferForm] = useState({
+    fromCashboxId: treasuryCashboxes[1]?.id ?? '',
+    toCashboxId: treasuryCashboxes[0]?.id ?? '',
+    amount: '250',
+    currency: 'USD' as CashboxCurrency,
+    date: '2026-06-22',
+    requester: 'المدير المالي',
+    note: 'مناقلة بين صناديق',
+  })
+
+  const usdBalance = useMemo(
+    () => cashboxes.filter((cashbox) => cashbox.currency === 'USD').reduce((total, cashbox) => total + cashbox.balance, 0),
+    [cashboxes],
+  )
+  const sypBalance = useMemo(
+    () => cashboxes.filter((cashbox) => cashbox.currency === 'SYP').reduce((total, cashbox) => total + cashbox.balance, 0),
+    [cashboxes],
+  )
+  const pendingTransfers = transfers.filter((transfer) => transfer.status === 'pendingReview').length
+  const openSessions = cashboxes.filter((cashbox) => cashbox.status === 'warning' || cashbox.status === 'info').length
+  const amount = Number(transferForm.amount)
+  const sourceCashbox = cashboxes.find((cashbox) => cashbox.id === transferForm.fromCashboxId)
+  const targetCashbox = cashboxes.find((cashbox) => cashbox.id === transferForm.toCashboxId)
+  const transferError =
+    !sourceCashbox || !targetCashbox
+      ? locale === 'ar' ? 'حدد الصندوقين قبل تنفيذ المناقلة.' : 'Select both cashboxes first.'
+      : sourceCashbox.id === targetCashbox.id
+        ? locale === 'ar' ? 'لا يمكن المناقلة إلى نفس الصندوق.' : 'Source and target must be different.'
+        : sourceCashbox.currency !== transferForm.currency || targetCashbox.currency !== transferForm.currency
+          ? locale === 'ar' ? 'عملة المناقلة يجب أن تطابق عملة الصندوقين.' : 'Transfer currency must match both cashboxes.'
+          : amount <= 0
+            ? locale === 'ar' ? 'أدخل مبلغاً صحيحاً أكبر من صفر.' : 'Enter a valid amount greater than zero.'
+            : amount > sourceCashbox.balance
+              ? locale === 'ar' ? 'رصيد الصندوق المصدر غير كاف لهذه المناقلة.' : 'Source cashbox balance is not enough.'
+              : ''
+
+  const cashboxById = useMemo(() => new Map(cashboxes.map((cashbox) => [cashbox.id, cashbox])), [cashboxes])
+
+  const createCashbox = () => {
+    const openingBalance = Number(createForm.openingBalance) || 0
+    const nextIndex = cashboxes.length + 1
+    const newCashbox: TreasuryCashbox = {
+      id: `box-${Date.now()}`,
+      code: `BOX-${String(nextIndex).padStart(2, '0')}`,
+      name: createForm.name.trim() || 'صندوق جديد',
+      branch: createForm.branch.trim() || 'الإدارة',
+      responsible: createForm.responsible.trim() || 'أمين الصندوق',
+      currency: createForm.currency,
+      kind: createForm.kind,
+      balance: openingBalance,
+      lastCloseAt: 'لم يغلق بعد',
+      openSession: `CLS-${130 + nextIndex}`,
+      status: 'info',
+    }
+
+    setCashboxes((current) => [newCashbox, ...current])
+    setModal(null)
+  }
+
+  const postTransfer = () => {
+    if (transferError || !sourceCashbox || !targetCashbox) return
+
+    const newTransfer: CashboxTransfer = {
+      id: `tr-${Date.now()}`,
+      ref: `TR-CB-${900 + transfers.length + 1}`,
+      fromCashboxId: sourceCashbox.id,
+      toCashboxId: targetCashbox.id,
+      amount,
+      currency: transferForm.currency,
+      date: transferForm.date,
+      requester: transferForm.requester,
+      note: transferForm.note,
+      status: 'posted',
+    }
+
+    setCashboxes((current) =>
+      current.map((cashbox) => {
+        if (cashbox.id === sourceCashbox.id) return { ...cashbox, balance: cashbox.balance - amount, status: 'success' }
+        if (cashbox.id === targetCashbox.id) return { ...cashbox, balance: cashbox.balance + amount, status: 'success' }
+        return cashbox
+      }),
+    )
+    setTransfers((current) => [newTransfer, ...current])
+    setModal(null)
+  }
+
+  return (
+    <div className="treasury-cashboxes">
+      <section className="treasury-cashboxes__hero">
+        <div>
+          <span>{locale === 'ar' ? 'المسار المحاسبي' : 'Accounting path'}</span>
+          <h3>{locale === 'ar' ? 'المالية > الخزينة > إدارة الصناديق' : 'Finance > Treasury > Cashbox management'}</h3>
+          <p>
+            {locale === 'ar'
+              ? 'من هنا يتم إنشاء صندوق مالي، تغذية العهد، ومناقلة النقد بين الصناديق مع أثر رصيد فوري وسجل حركة جاهز للربط المحاسبي.'
+              : 'Create cashboxes, fund petty cash, and transfer cash between boxes with instant balance impact and an accounting-ready movement log.'}
+          </p>
+        </div>
+        <div className="treasury-cashboxes__actions">
+          <button type="button" className="btn btn--accent" onClick={() => setModal('create')}>
+            {locale === 'ar' ? 'إنشاء صندوق مالي' : 'Create cashbox'}
+          </button>
+          <button type="button" className="btn btn--primary" onClick={() => setModal('transfer')}>
+            {locale === 'ar' ? 'مناقلة بين صناديق' : 'Transfer between cashboxes'}
+          </button>
+        </div>
+      </section>
+
+      <section className="treasury-cashboxes__metrics" aria-label={locale === 'ar' ? 'ملخص الصناديق' : 'Cashbox summary'}>
+        <div><span>{locale === 'ar' ? 'رصيد USD' : 'USD balance'}</span><strong>{formatCashboxAmount(usdBalance, 'USD')}</strong></div>
+        <div><span>{locale === 'ar' ? 'رصيد SYP' : 'SYP balance'}</span><strong>{formatCashboxAmount(sypBalance, 'SYP')}</strong></div>
+        <div><span>{locale === 'ar' ? 'صناديق فعالة' : 'Active boxes'}</span><strong>{cashboxes.length}</strong></div>
+        <div><span>{locale === 'ar' ? 'مناقلات معلقة' : 'Pending transfers'}</span><strong>{pendingTransfers}</strong></div>
+        <div><span>{locale === 'ar' ? 'إقفالات مفتوحة' : 'Open closes'}</span><strong>{openSessions}</strong></div>
+      </section>
+
+      <section className="treasury-cashboxes__grid">
+        <div className="treasury-cashboxes__panel">
+          <div className="treasury-cashboxes__panel-head">
+            <div>
+              <h3>{locale === 'ar' ? 'الصناديق المالية' : 'Cashboxes'}</h3>
+              <p>{locale === 'ar' ? 'الرصيد الحالي، المسؤول، آخر إقفال، وحالة الصندوق.' : 'Current balance, owner, last close, and box state.'}</p>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table className="data-table finance-specific-table treasury-cashboxes__table">
+              <thead>
+                <tr>
+                  <th>{locale === 'ar' ? 'الكود' : 'Code'}</th>
+                  <th>{locale === 'ar' ? 'الصندوق' : 'Cashbox'}</th>
+                  <th>{locale === 'ar' ? 'الفرع' : 'Branch'}</th>
+                  <th>{locale === 'ar' ? 'المسؤول' : 'Responsible'}</th>
+                  <th>{locale === 'ar' ? 'النوع' : 'Type'}</th>
+                  <th>{locale === 'ar' ? 'الرصيد' : 'Balance'}</th>
+                  <th>{locale === 'ar' ? 'آخر إقفال' : 'Last close'}</th>
+                  <th>{locale === 'ar' ? 'الحالة' : 'State'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cashboxes.map((cashbox) => (
+                  <tr key={cashbox.id}>
+                    <td>{cashbox.code}</td>
+                    <td><strong>{cashbox.name}</strong><small>{cashbox.openSession}</small></td>
+                    <td>{cashbox.branch}</td>
+                    <td>{cashbox.responsible}</td>
+                    <td>{cashboxKindLabels[cashbox.kind][locale]}</td>
+                    <td className="data-table__number">{formatCashboxAmount(cashbox.balance, cashbox.currency)}</td>
+                    <td>{cashbox.lastCloseAt}</td>
+                    <td><Badge variant={cashbox.status}>{cashbox.status === 'success' ? (locale === 'ar' ? 'مطابق' : 'Matched') : cashbox.status === 'warning' ? (locale === 'ar' ? 'مراجعة' : 'Review') : (locale === 'ar' ? 'مفتوح' : 'Open')}</Badge></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="treasury-cashboxes__panel">
+          <div className="treasury-cashboxes__panel-head">
+            <div>
+              <h3>{locale === 'ar' ? 'سجل المناقلات' : 'Transfer log'}</h3>
+              <p>{locale === 'ar' ? 'كل مناقلة تحفظ المصدر والوجهة والمبلغ والاعتماد.' : 'Every transfer keeps source, destination, amount, and approval state.'}</p>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table className="data-table finance-specific-table treasury-cashboxes__table">
+              <thead>
+                <tr>
+                  <th>{locale === 'ar' ? 'المرجع' : 'Ref'}</th>
+                  <th>{locale === 'ar' ? 'من صندوق' : 'From'}</th>
+                  <th>{locale === 'ar' ? 'إلى صندوق' : 'To'}</th>
+                  <th>{locale === 'ar' ? 'المبلغ' : 'Amount'}</th>
+                  <th>{locale === 'ar' ? 'التاريخ' : 'Date'}</th>
+                  <th>{locale === 'ar' ? 'الطالب' : 'Requester'}</th>
+                  <th>{locale === 'ar' ? 'الحالة' : 'State'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transfers.map((transfer) => {
+                  const status = cashboxTransferStatusLabels[transfer.status]
+                  return (
+                    <tr key={transfer.id}>
+                      <td>{transfer.ref}</td>
+                      <td>{cashboxById.get(transfer.fromCashboxId)?.name ?? '-'}</td>
+                      <td>{cashboxById.get(transfer.toCashboxId)?.name ?? '-'}</td>
+                      <td className="data-table__number">{formatCashboxAmount(transfer.amount, transfer.currency)}</td>
+                      <td>{transfer.date}</td>
+                      <td>{transfer.requester}</td>
+                      <td><Badge variant={status.variant}>{status.label[locale]}</Badge></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {modal === 'create' && (
+        <CashboxModalFrame
+          title={locale === 'ar' ? 'إنشاء صندوق مالي' : 'Create cashbox'}
+          subtitle={locale === 'ar' ? 'تعريف صندوق جديد مع الفرع والمسؤول والعملة والرصيد الافتتاحي.' : 'Define a new cashbox with branch, owner, currency, and opening balance.'}
+          onClose={() => setModal(null)}
+          footer={
+            <>
+              <button type="button" className="btn btn--ghost" onClick={() => setModal(null)}>{locale === 'ar' ? 'إلغاء' : 'Cancel'}</button>
+              <button type="button" className="btn btn--primary" onClick={createCashbox}>{locale === 'ar' ? 'حفظ الصندوق' : 'Save cashbox'}</button>
+            </>
+          }
+        >
+          <div className="treasury-cashboxes__form">
+            <label><span>{locale === 'ar' ? 'اسم الصندوق' : 'Cashbox name'}</span><input className="form-input" value={createForm.name} onChange={(event) => setCreateForm((form) => ({ ...form, name: event.target.value }))} /></label>
+            <label><span>{locale === 'ar' ? 'الفرع' : 'Branch'}</span><input className="form-input" value={createForm.branch} onChange={(event) => setCreateForm((form) => ({ ...form, branch: event.target.value }))} /></label>
+            <label><span>{locale === 'ar' ? 'المسؤول' : 'Responsible'}</span><input className="form-input" value={createForm.responsible} onChange={(event) => setCreateForm((form) => ({ ...form, responsible: event.target.value }))} /></label>
+            <label><span>{locale === 'ar' ? 'العملة' : 'Currency'}</span><select className="form-input" value={createForm.currency} onChange={(event) => setCreateForm((form) => ({ ...form, currency: event.target.value as CashboxCurrency }))}><option value="USD">USD</option><option value="SYP">SYP</option></select></label>
+            <label><span>{locale === 'ar' ? 'نوع الصندوق' : 'Type'}</span><select className="form-input" value={createForm.kind} onChange={(event) => setCreateForm((form) => ({ ...form, kind: event.target.value as CashboxKind }))}><option value="main">{cashboxKindLabels.main[locale]}</option><option value="branch">{cashboxKindLabels.branch[locale]}</option><option value="petty">{cashboxKindLabels.petty[locale]}</option></select></label>
+            <label><span>{locale === 'ar' ? 'رصيد افتتاحي' : 'Opening balance'}</span><input className="form-input" type="number" min="0" value={createForm.openingBalance} onChange={(event) => setCreateForm((form) => ({ ...form, openingBalance: event.target.value }))} /></label>
+          </div>
+        </CashboxModalFrame>
+      )}
+
+      {modal === 'transfer' && (
+        <CashboxModalFrame
+          title={locale === 'ar' ? 'مناقلة بين صناديق' : 'Transfer between cashboxes'}
+          subtitle={locale === 'ar' ? 'اختر الصندوق المصدر والوجهة والمبلغ؛ يتم تحديث الأرصدة مباشرة في الواجهة.' : 'Choose source, target, and amount; balances update immediately in the UI.'}
+          onClose={() => setModal(null)}
+          footer={
+            <>
+              <button type="button" className="btn btn--ghost" onClick={() => setModal(null)}>{locale === 'ar' ? 'إلغاء' : 'Cancel'}</button>
+              <button type="button" className="btn btn--primary" disabled={Boolean(transferError)} onClick={postTransfer}>{locale === 'ar' ? 'تنفيذ المناقلة' : 'Post transfer'}</button>
+            </>
+          }
+        >
+          <div className="treasury-cashboxes__form">
+            <label><span>{locale === 'ar' ? 'من صندوق' : 'From cashbox'}</span><select className="form-input" value={transferForm.fromCashboxId} onChange={(event) => setTransferForm((form) => ({ ...form, fromCashboxId: event.target.value }))}>{cashboxes.map((cashbox) => <option key={cashbox.id} value={cashbox.id}>{cashbox.name} - {formatCashboxAmount(cashbox.balance, cashbox.currency)}</option>)}</select></label>
+            <label><span>{locale === 'ar' ? 'إلى صندوق' : 'To cashbox'}</span><select className="form-input" value={transferForm.toCashboxId} onChange={(event) => setTransferForm((form) => ({ ...form, toCashboxId: event.target.value }))}>{cashboxes.map((cashbox) => <option key={cashbox.id} value={cashbox.id}>{cashbox.name} - {cashbox.currency}</option>)}</select></label>
+            <label><span>{locale === 'ar' ? 'العملة' : 'Currency'}</span><select className="form-input" value={transferForm.currency} onChange={(event) => setTransferForm((form) => ({ ...form, currency: event.target.value as CashboxCurrency }))}><option value="USD">USD</option><option value="SYP">SYP</option></select></label>
+            <label><span>{locale === 'ar' ? 'المبلغ' : 'Amount'}</span><input className="form-input" type="number" min="1" value={transferForm.amount} onChange={(event) => setTransferForm((form) => ({ ...form, amount: event.target.value }))} /></label>
+            <label><span>{locale === 'ar' ? 'التاريخ' : 'Date'}</span><input className="form-input" type="date" value={transferForm.date} onChange={(event) => setTransferForm((form) => ({ ...form, date: event.target.value }))} /></label>
+            <label><span>{locale === 'ar' ? 'طالب المناقلة' : 'Requester'}</span><input className="form-input" value={transferForm.requester} onChange={(event) => setTransferForm((form) => ({ ...form, requester: event.target.value }))} /></label>
+            <label className="treasury-cashboxes__form-wide"><span>{locale === 'ar' ? 'ملاحظات' : 'Notes'}</span><textarea className="form-input" rows={3} value={transferForm.note} onChange={(event) => setTransferForm((form) => ({ ...form, note: event.target.value }))} /></label>
+          </div>
+          {transferError && <p className="treasury-cashboxes__error">{transferError}</p>}
+        </CashboxModalFrame>
+      )}
+    </div>
+  )
+}
+
+function CashboxModalFrame({
+  title,
+  subtitle,
+  children,
+  footer,
+  onClose,
+}: {
+  title: string
+  subtitle: string
+  children: React.ReactNode
+  footer: React.ReactNode
+  onClose: () => void
+}) {
+  return (
+    <div className="treasury-cashboxes-modal" role="dialog" aria-modal="true">
+      <button type="button" className="treasury-cashboxes-modal__backdrop" onClick={onClose} aria-label="إغلاق" />
+      <div className="treasury-cashboxes-modal__panel">
+        <header className="treasury-cashboxes-modal__header">
+          <div>
+            <span>الخزينة</span>
+            <h2>{title}</h2>
+            <p>{subtitle}</p>
+          </div>
+          <button type="button" className="treasury-cashboxes-modal__close" onClick={onClose} aria-label="إغلاق">×</button>
+        </header>
+        <div className="treasury-cashboxes-modal__body">{children}</div>
+        <footer className="treasury-cashboxes-modal__footer">{footer}</footer>
       </div>
     </div>
   )

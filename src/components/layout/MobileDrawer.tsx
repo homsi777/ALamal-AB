@@ -8,6 +8,7 @@ import { FINANCE_SUB_ITEMS } from '../../data/financeNav'
 import { REPORTS_SUB_ITEMS } from '../../data/reportsNav'
 import { useApp } from '../../context/AppProvider'
 import type { SubNavItem } from './SubNavDropdown'
+import { NavIcon } from './NavIcon'
 
 type MobileDrawerProps = {
   open: boolean
@@ -39,7 +40,7 @@ function DrawerSubmenu({
         }}
         aria-expanded={open}
       >
-        <span className="mobile-drawer__icon">{item.icon}</span>
+        <NavIcon name={item.id} className="mobile-drawer__icon mobile-drawer__icon-svg" />
         {t(item.labelKey)}
         <span className={`drawer-submenu__arrow ${open ? 'drawer-submenu__arrow--open' : ''}`}>▾</span>
       </button>
@@ -163,7 +164,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
                 }
                 onClick={onClose}
               >
-                <span className="mobile-drawer__icon">{item.icon}</span>
+                <NavIcon name={item.id} className="mobile-drawer__icon mobile-drawer__icon-svg" />
                 {t(item.labelKey)}
               </NavLink>
             )

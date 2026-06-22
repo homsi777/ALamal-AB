@@ -11,6 +11,7 @@ import { INVOICES_SUB_ITEMS } from '../../data/invoicesNav'
 import { PARTIES_SUB_ITEMS } from '../../data/partiesNav'
 import { FINANCE_SUB_ITEMS } from '../../data/financeNav'
 import { REPORTS_SUB_ITEMS } from '../../data/reportsNav'
+import { NavIcon } from './NavIcon'
 
 export function AppShell() {
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -44,7 +45,7 @@ export function AppShell() {
                 return (
                   <SubNavDropdown
                     key={item.id}
-                    icon={item.icon}
+                    icon={<NavIcon name={item.id} />}
                     labelKey={item.labelKey}
                     basePath="/inventory"
                     items={INVENTORY_SUB_ITEMS}
@@ -56,7 +57,7 @@ export function AppShell() {
                 return (
                   <SubNavDropdown
                     key={item.id}
-                    icon={item.icon}
+                    icon={<NavIcon name={item.id} />}
                     labelKey={item.labelKey}
                     basePath="/invoices"
                     items={INVOICES_SUB_ITEMS}
@@ -68,7 +69,7 @@ export function AppShell() {
                 return (
                   <SubNavDropdown
                     key={item.id}
-                    icon={item.icon}
+                    icon={<NavIcon name={item.id} />}
                     labelKey={item.labelKey}
                     basePath="/parties"
                     items={PARTIES_SUB_ITEMS}
@@ -80,7 +81,7 @@ export function AppShell() {
                 return (
                   <SubNavDropdown
                     key={item.id}
-                    icon={item.icon}
+                    icon={<NavIcon name={item.id} />}
                     labelKey={item.labelKey}
                     basePath="/finance"
                     items={FINANCE_SUB_ITEMS}
@@ -92,7 +93,7 @@ export function AppShell() {
                 return (
                   <SubNavDropdown
                     key={item.id}
-                    icon={item.icon}
+                    icon={<NavIcon name={item.id} />}
                     labelKey={item.labelKey}
                     basePath="/reports"
                     items={REPORTS_SUB_ITEMS}
@@ -109,7 +110,7 @@ export function AppShell() {
                     `app-nav__link ${isActive ? 'app-nav__link--active' : ''}`
                   }
                 >
-                  <span>{item.icon}</span>
+                  <NavIcon name={item.id} />
                   {t(item.labelKey)}
                   {item.id === 'delivery' && awaitingCount > 0 && (
                     <span className="nav-badge" title={t('delivery.navBadge')}>

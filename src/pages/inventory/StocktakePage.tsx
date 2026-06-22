@@ -16,8 +16,199 @@ import {
   type StocktakeStatus,
 } from '../../data/stocktake'
 import { useApp } from '../../context/AppProvider'
+import {
+  containerMovementLabel,
+  containerStocktakeAudits,
+  getContainerAuditTotals,
+  type ContainerStocktakeAudit,
+} from '../../data/containerStocktake'
 
 type StatusFilter = 'all' | StocktakeStatus
+
+function formatContainerNumber(value: number, fractionDigits = 0) {
+  return new Intl.NumberFormat('ar-SY', {
+    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: fractionDigits,
+  }).format(value)
+}
+
+function ContainerStocktakeModal({
+  selectedAudit,
+  onSelectAudit,
+  onClose,
+}: {
+  selectedAudit: ContainerStocktakeAudit
+  onSelectAudit: (auditId: string) => void
+  onClose: () => void
+}) {
+  const totals = getContainerAuditTotals(selectedAudit)
+  const container = selectedAudit.container
+  const movementCounts = selectedAudit.movements.reduce<Record<string, number>>((counts, movement) => {
+    counts[movement.type] = (counts[movement.type] ?? 0) + 1
+    return counts
+  }, {})
+
+  return (
+    <div className="container-stocktake-modal" role="dialog" aria-modal="true">
+      <button type="button" className="container-stocktake-modal__backdrop" onClick={onClose} aria-label="إغلاق" />
+      <div className="container-stocktake-modal__panel">
+        <header className="container-stocktake-modal__header">
+          <div>
+            <span className="container-stocktake-modal__eyebrow">جرد حسب رقم الحاوية</span>
+            <h2>جرد حاوية شامل</h2>
+            <p>عرض كل الحركات الكمية المرتبطة بالحاوية من تاريخ الوصول حتى تاريخ الجرد.</p>
+          </div>
+          <button type="button" className="container-stocktake-modal__close" onClick={onClose}>×</button>
+        </header>
+
+        <div className="container-stocktake-modal__body">
+          <section className="container-stocktake-picker">
+            <label>
+              رقم الحاوية
+              <select value={selectedAudit.container.id} onChange={(event) => onSelectAudit(event.target.value)}>
+                {containerStocktakeAudits.map((audit) => (
+                  <option key={audit.container.id} value={audit.container.id}>
+                    {audit.container.containerNo} - {audit.container.supplierName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div>
+              <span>المورد</span>
+              <strong>{container.supplierName}</strong>
+            </div>
+            <div>
+              <span>تاريخ الوصول</span>
+              <strong>{container.expectedArrival}</strong>
+            </div>
+            <div>
+              <span>تاريخ الجرد</span>
+              <strong>{selectedAudit.stocktakeDate}</strong>
+            </div>
+          </section>
+
+          <section className="container-stocktake-kpis">
+            <div><span>الأثواب الواردة</span><strong>{formatContainerNumber(totals.arrivedBolts)}</strong></div>
+            <div><span>الأطوال الواردة</span><strong>{formatContainerNumber(totals.arrivedLength)} م</strong></div>
+            <div><span>الرصيد المتوقع</span><strong>{formatContainerNumber(totals.expectedBolts)} توب</strong></div>
+            <div><span>الرصيد المعدود</span><strong>{formatContainerNumber(totals.countedBolts)} توب</strong></div>
+            <div><span>فرق الأثواب</span><strong className={totals.varianceBolts === 0 ? '' : 'container-stocktake__variance'}>{formatContainerNumber(totals.varianceBolts)}</strong></div>
+            <div><span>فرق الأطوال</span><strong className={Math.round(totals.varianceLength) === 0 ? '' : 'container-stocktake__variance'}>{formatContainerNumber(totals.varianceLength, 1)} م</strong></div>
+          </section>
+
+          <section className="container-stocktake-flow">
+            {[
+              ['وصول', movementCounts.arrival ?? 0],
+              ['إدخال مستودع', movementCounts.warehouse_in ?? 0],
+              ['بيع/تسليم', movementCounts.sale ?? 0],
+              ['حجوزات', movementCounts.reservation ?? 0],
+              ['إرجاع', movementCounts.return ?? 0],
+              ['هالك', movementCounts.waste ?? 0],
+              ['ذمم', movementCounts.customer_balance ?? 0],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+              </div>
+            ))}
+          </section>
+
+          <section className="container-stocktake-section">
+            <div className="container-stocktake-section__head">
+              <div>
+                <h3>مطابقة الرصيد حسب الكود واللون</h3>
+                <p>الوارد مطروحًا منه البيع والهالك والمناقلات، مع إضافة الإرجاعات المسجلة.</p>
+              </div>
+              <Badge variant={totals.varianceBolts === 0 && Math.round(totals.varianceLength) === 0 ? 'success' : 'warning'}>
+                {totals.varianceBolts === 0 && Math.round(totals.varianceLength) === 0 ? 'مطابق' : 'يوجد فرق'}
+              </Badge>
+            </div>
+            <div className="table-wrap">
+              <table className="data-table container-stocktake-table">
+                <thead>
+                  <tr>
+                    <th>كود القماش</th>
+                    <th>النوع</th>
+                    <th>اللون</th>
+                    <th>وارد</th>
+                    <th>بيع/تسليم</th>
+                    <th>حجز</th>
+                    <th>إرجاع</th>
+                    <th>هالك</th>
+                    <th>مناقلة</th>
+                    <th>متوقع</th>
+                    <th>معدود</th>
+                    <th>الفرق</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedAudit.lines.map((line) => {
+                    const variance = (line.countedBolts ?? 0) - line.expectedBolts
+                    return (
+                      <tr key={`${line.fabricCode}-${line.color}`}>
+                        <td>{line.fabricCode}</td>
+                        <td>{line.fabricName}</td>
+                        <td>{line.color}</td>
+                        <td>{line.arrivedBolts}</td>
+                        <td>{line.soldBolts}</td>
+                        <td>{line.reservedBolts}</td>
+                        <td>{line.returnedBolts}</td>
+                        <td>{line.wasteBolts}</td>
+                        <td>{line.transferredBolts}</td>
+                        <td>{line.expectedBolts}</td>
+                        <td>{line.countedBolts ?? 'معلق'}</td>
+                        <td>
+                          <span className={variance === 0 ? 'container-stocktake__match' : 'container-stocktake__variance'}>
+                            {formatContainerNumber(variance)}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="container-stocktake-section">
+            <div className="container-stocktake-section__head">
+              <div>
+                <h3>كل الحركات المرتبطة بالحاوية</h3>
+                <p>سجل تشغيلي شامل: مستودع، عميل، بيع، إرجاع، هالك، وذمم كمية.</p>
+              </div>
+            </div>
+            <div className="container-stocktake-timeline">
+              {selectedAudit.movements.map((movement) => (
+                <article key={movement.id} className={`container-stocktake-timeline__item container-stocktake-timeline__item--${movement.type}`}>
+                  <div className="container-stocktake-timeline__date">{movement.date}</div>
+                  <div className="container-stocktake-timeline__body">
+                    <div className="container-stocktake-timeline__title">
+                      <strong>{movement.title}</strong>
+                      <span>{containerMovementLabel(movement.type)}</span>
+                    </div>
+                    <p>{movement.note}</p>
+                    <div className="container-stocktake-timeline__meta">
+                      <span>الطرف: {movement.party}</span>
+                      <span>الموقع: {movement.warehouse}</span>
+                      <span>{movement.fabricCode} / {movement.color}</span>
+                      <span>{formatContainerNumber(movement.bolts)} توب</span>
+                      <span>{formatContainerNumber(movement.lengthMeter)} م</span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <footer className="container-stocktake-modal__footer">
+          <GlossButton variant="ghost" onClick={onClose}>إغلاق</GlossButton>
+          <GlossButton variant="accent" onClick={onClose}>اعتماد مراجعة الجرد تجريبياً</GlossButton>
+        </footer>
+      </div>
+    </div>
+  )
+}
 
 export function StocktakePage() {
   const { t, locale } = useApp()
@@ -25,6 +216,8 @@ export function StocktakePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [expandedId, setExpandedId] = useState<string | null>(stocktakeSessions[0]?.id ?? null)
+  const [containerStocktakeOpen, setContainerStocktakeOpen] = useState(false)
+  const [selectedContainerAuditId, setSelectedContainerAuditId] = useState(containerStocktakeAudits[0]?.container.id ?? '')
 
   const formatStatValue = (value: number) =>
     value.toLocaleString('en-US', { useGrouping: false })
@@ -117,6 +310,9 @@ export function StocktakePage() {
     return workflowSteps.findIndex((step) => step.id === status)
   }
 
+  const selectedContainerAudit =
+    containerStocktakeAudits.find((audit) => audit.container.id === selectedContainerAuditId) ?? containerStocktakeAudits[0]
+
   return (
     <>
       <PageHeader
@@ -124,6 +320,7 @@ export function StocktakePage() {
         subtitle={t('inventory.stocktake.subtitle')}
         actions={
           <>
+            <GlossButton variant="ghost" onClick={() => setContainerStocktakeOpen(true)}>جرد حاوية</GlossButton>
             <GlossButton variant="accent">{t('inventory.stocktake.new')}</GlossButton>
             <div className="page-header__search-group">
               <input
@@ -449,6 +646,14 @@ export function StocktakePage() {
           })}
         </div>
       </div>
+
+      {containerStocktakeOpen && selectedContainerAudit && (
+        <ContainerStocktakeModal
+          selectedAudit={selectedContainerAudit}
+          onSelectAudit={setSelectedContainerAuditId}
+          onClose={() => setContainerStocktakeOpen(false)}
+        />
+      )}
     </>
   )
 }

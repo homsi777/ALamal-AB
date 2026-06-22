@@ -413,7 +413,7 @@ const definitions: Record<string, FinanceTaskDefinition> = {
       { label: { ar: 'إقفالات مفتوحة', en: 'Open closes' }, value: '2', tone: 'warning' },
     ],
     auditTrail: defaultAudit,
-    printTitle: { ar: 'إقفال صندوق', en: 'Cashbox Close' },
+    printTitle: { ar: 'إدارة الصناديق والمناقلات', en: 'Cashboxes and Transfers' },
   },
   'fixed-assets:assets-register': {
     id: 'assets-register',

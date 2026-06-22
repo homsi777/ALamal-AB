@@ -9,6 +9,7 @@ export type PartiesSubItem = {
 export const PARTIES_SUB_ITEMS: PartiesSubItem[] = [
   { id: 'customers', path: '/parties/customers', icon: '👤', labelKey: 'parties.sub.customers' },
   { id: 'customers-register', path: '/parties/customers/register', icon: '📋', labelKey: 'parties.sub.customersRegister', end: true },
+  { id: 'customer-opening-balance', path: '/parties/customers/opening-balance', icon: '🧾', labelKey: 'parties.sub.customerOpeningBalance' },
   { id: 'customer-statement', path: '/parties/customers/statement', icon: '📄', labelKey: 'parties.sub.customerStatement' },
   { id: 'customer-invoice-statement', path: '/parties/customers/invoice-statement', icon: '🧾', labelKey: 'parties.sub.customerInvoiceStatement' },
   { id: 'suppliers', path: '/parties/suppliers', icon: '🏭', labelKey: 'parties.sub.suppliers' },
